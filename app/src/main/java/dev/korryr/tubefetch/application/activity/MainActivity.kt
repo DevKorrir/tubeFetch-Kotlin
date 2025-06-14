@@ -1,4 +1,4 @@
-package dev.korryr.tubefetch
+package dev.korryr.tubefetch.application.activity
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
