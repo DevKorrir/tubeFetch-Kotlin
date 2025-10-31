@@ -1,17 +1,16 @@
 package dev.korryr.tubefetch.di
 
 import android.content.Context
-import androidx.room.Room
 import androidx.work.WorkManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import dev.korryr.tubefetch.data.local.AppDatabase
-import dev.korryr.tubefetch.data.local.FileStorageManager
+import dev.korryr.tubefetch.data.local.db.AppDatabase
+import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
 import dev.korryr.tubefetch.data.remote.VideoService
-import dev.korryr.tubefetch.data.repository.VideoRepositoryImpl
+import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor

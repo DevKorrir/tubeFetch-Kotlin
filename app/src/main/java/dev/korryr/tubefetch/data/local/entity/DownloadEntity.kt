@@ -1,10 +1,12 @@
 package dev.korryr.tubefetch.data.local.entity
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.room.*
 import java.time.LocalDateTime
 
 @Entity(tableName = "downloads")
-data class DownloadEntity(
+data class DownloadEntity @RequiresApi(Build.VERSION_CODES.O) constructor(
     @PrimaryKey
     val id: String,
     val title: String,

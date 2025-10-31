@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import android.content.Context
+import dev.korryr.tubefetch.data.local.Converters
 import dev.korryr.tubefetch.data.local.dao.DownloadDao
 import dev.korryr.tubefetch.data.local.entity.DownloadEntity
 
