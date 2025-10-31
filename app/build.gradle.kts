@@ -122,10 +122,10 @@ dependencies {
 
 
     // File operations
-    implementation("commons-io:commons-io:2.15.1")
+    implementation("commons-io:commons-io:2.20.0")
 
     // Coroutines for async operations
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     // YouTube DL for Android (Java wrapper)
     implementation("com.github.yausername.youtubedl-android:library:0.13.0")
