@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,7 @@ plugins {
 
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -20,6 +23,21 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // BuildConfig fields
+        buildConfigField("String", "YOUTUBE_API_KEY", "\"${properties["YOUTUBE_API_KEY"]}\"")
+        buildConfigField("String", "YOUTUBE_BASE_URL", "\"${properties["YOUTUBE_BASE_URL"]}\"")
+
+    }
+
+    // Load keys.properties
+    val keysProperties = file("../keys.properties")
+    if (keysProperties.exists()) {
+        val keys = Properties()
+        keys.load(keysProperties.inputStream())
+        keys.forEach { key, value ->
+            project.extra[key.toString()] = value
+        }
     }
 
     buildTypes {
@@ -61,9 +79,13 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
+    //extend icons
+    implementation("androidx.compose.material:material-icons-core:1.7.8")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.57.1")
-    ksp("com.google.dagger:hilt-compiler:2.57.1")
+    implementation("com.google.dagger:hilt-android:2.57.2")
+    ksp("com.google.dagger:hilt-compiler:2.57.2")
 
     // Hilt Navigation Compose (recommended for Compose + Hilt)
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
@@ -71,4 +93,30 @@ dependencies {
     //extend icons
     implementation("androidx.compose.material:material-icons-core:1.7.8")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
+
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-moshi:3.0.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:5.3.0")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.11.0")
+    implementation("androidx.hilt:hilt-work:1.3.0")
+    ksp("androidx.hilt:hilt-compiler:1.3.0")
+
+
+    // Local Database (Room) - for offline storage
+    implementation("androidx.room:room-runtime:2.8.3")
+    implementation("androidx.room:room-ktx:2.8.3")
+    // KSP runs Room's codegen
+    ksp("androidx.room:room-compiler:2.8.3")
+
+    // Timber for logging
+    implementation("com.jakewharton.timber:timber:5.0.1")
+
+    // Animation
+    implementation("androidx.compose.animation:animation:1.9.4")
+    implementation("androidx.compose.animation:animation-graphics:1.9.4")
+
+
 }
