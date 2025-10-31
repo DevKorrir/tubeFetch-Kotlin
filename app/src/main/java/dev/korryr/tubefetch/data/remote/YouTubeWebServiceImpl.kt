@@ -11,48 +11,50 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Inject
 
-class YouTubeWebServiceImpl @Inject constructor() {
-    private val service: YouTubeWebService by lazy {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-
-        val client = OkHttpClient.Builder()
-            .addInterceptor(logging)
-            .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("X-RapidAPI-Key", BuildConfig.YOUTUBE_API_KEY)
-                    .addHeader("X-RapidAPI-Host", "youtube-downloader-api.p.rapidapi.com")
-                    .build()
-                chain.proceed(request)
-            }
-            .build()
-
-        Retrofit.Builder()
-            .baseUrl(YouTubeWebService.BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .client(client)
-            .build()
-            .create(YouTubeWebService::class.java)
-    }
+class YouTubeWebServiceImpl @Inject constructor(
+    private val service: YouTubeWebService
+) {
+//    private val service: YouTubeWebService by lazy {
+//        val logging = HttpLoggingInterceptor().apply {
+//            level = HttpLoggingInterceptor.Level.BODY
+//        }
+//
+//        val client = OkHttpClient.Builder()
+//            .addInterceptor(logging)
+//            .addInterceptor { chain ->
+//                val request = chain.request().newBuilder()
+//                    .addHeader("X-RapidAPI-Key", BuildConfig.YOUTUBE_API_KEY)
+//                    .addHeader("X-RapidAPI-Host", BuildConfig.YOUTUBE_HOST)
+//                    .build()
+//                chain.proceed(request)
+//            }
+//            .build()
+//
+//        Retrofit.Builder()
+//            .baseUrl(YouTubeWebService.BASE_URL)
+//            .addConverterFactory(GsonConverterFactory.create())
+//            .client(client)
+//            .build()
+//            .create(YouTubeWebService::class.java)
+//    }
 
     suspend fun getVideoInfo(url: String): ApiResult<VideoInfo> = withContext(Dispatchers.IO) {
         try {
-            val response = service.getVideoInfo(url)
-            val videoInfo = response.toVideoInfo()
-            ApiResult.Success(videoInfo)
+            val response = service.getVideoInfo(url) // retrofit @Query will url-encode
+            ApiResult.Success(response.toVideoInfo())
+        } catch (e: retrofit2.HttpException) {
+            ApiResult.Error("HTTP ${e.code()}: ${e.message()}")
         } catch (e: Exception) {
             ApiResult.Error("Failed to get video info: ${e.message}")
         }
     }
-    suspend fun getDownloadUrl(
-        url: String,
-        format: String,
-        quality: String
-    ): ApiResult<DownloadUrlResponse> = withContext(Dispatchers.IO) {
+
+    suspend fun getDownloadUrl(url: String, format: String): ApiResult<DownloadUrlResponse> = withContext(Dispatchers.IO) {
         try {
-            val response = service.getDownloadUrl(url, format, quality)
+            val response = service.getDownloadUrl(url, format)
             ApiResult.Success(response)
+        } catch (e: retrofit2.HttpException) {
+            ApiResult.Error("HTTP ${e.code()}: ${e.message()}")
         } catch (e: Exception) {
             ApiResult.Error("Failed to get download URL: ${e.message}")
         }

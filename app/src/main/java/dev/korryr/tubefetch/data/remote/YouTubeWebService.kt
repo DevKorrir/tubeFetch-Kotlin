@@ -7,21 +7,18 @@ import retrofit2.http.Query
 interface YouTubeWebService {
     @GET("info")
     suspend fun getVideoInfo(
-        @Query("url") url: String,
-        @Query("key") apiKey: String = BuildConfig.YOUTUBE_API_KEY
+        @Query("url") url: String
     ): VideoInfoResponse
 
     @GET("download")
     suspend fun getDownloadUrl(
         @Query("url") url: String,
-        @Query("format") format: String,
-        @Query("quality") quality: String,
-        @Query("key") apiKey: String = BuildConfig.YOUTUBE_API_KEY
+        @Query("format") format: String
     ): DownloadUrlResponse
 
-    companion object {
-        const val BASE_URL = BuildConfig.YOUTUBE_BASE_URL
-
-
-    }
+//    companion object {
+//        const val BASE_URL = BuildConfig.YOUTUBE_BASE_URL
+//
+//
+//    }
 }

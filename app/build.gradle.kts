@@ -42,6 +42,7 @@ android {
 //        buildConfigField("String", "YOUTUBE_BASE_URL", "\"${properties["YOUTUBE_BASE_URL"]}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${keys.getProperty("YOUTUBE_API_KEY", "")}\"")
         buildConfigField("String", "YOUTUBE_BASE_URL", "\"${keys.getProperty("YOUTUBE_BASE_URL", "")}\"")
+        buildConfigField("String", "YOUTUBE_HOST", "\"${keys["YOUTUBE_HOST"]}\"")
 
     }
 
