@@ -13,6 +13,7 @@ import dev.korryr.tubefetch.data.remote.VideoService
 import dev.korryr.tubefetch.data.remote.YouTubeNativeService
 import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
+import dev.korryr.tubefetch.domain.tracker.DownloadTracker
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -91,5 +92,11 @@ object AppModule {
     @Singleton
     fun provideWorkManager(@ApplicationContext context: Context): WorkManager {
         return WorkManager.getInstance(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDownloadTracker(repository: VideoRepository): DownloadTracker {
+        return DownloadTracker(repository)
     }
 }

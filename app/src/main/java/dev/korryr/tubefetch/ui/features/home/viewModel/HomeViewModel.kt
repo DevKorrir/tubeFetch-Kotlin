@@ -1,15 +1,18 @@
 package dev.korryr.tubefetch.ui.features.home.viewModel
 
+import android.app.Activity
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.WorkManager
-import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.korryr.tubefetch.data.remote.DownloadFilter
 import dev.korryr.tubefetch.domain.model.*
+import dev.korryr.tubefetch.domain.tracker.DownloadTracker
 import dev.korryr.tubefetch.domain.usecase.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import dev.korryr.tubefetch.utils.PermissionManager
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,17 +24,24 @@ class HomeViewModel @Inject constructor(
     private val updateDownloadUseCase: UpdateDownloadUseCase,
     private val deleteDownloadUseCase: DeleteDownloadUseCase,
     private val clearCompletedDownloadsUseCase: ClearCompletedDownloadsUseCase,
-    private val workManager: WorkManager
+    private val permissionManager: PermissionManager,
+    private val downloadTracker: DownloadTracker
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(HomeState())
-    val state: StateFlow<HomeState> = _state.asStateFlow()
+    private val _state = mutableStateOf(HomeUiState())
+    val state: State<HomeUiState> = _state
 
-    private val _sideEffects = MutableStateFlow<HomeSideEffect?>(null)
-    val sideEffects: StateFlow<HomeSideEffect?> = _sideEffects.asStateFlow()
+    private val _permissionState = mutableStateOf(PermissionState())
+    val permissionState: State<PermissionState> = _permissionState
+
+    // FIX: Use MutableSharedFlow instead of mutableSharedFlow
+    private val _sideEffects = MutableSharedFlow<HomeSideEffect>()
+    val sideEffects: SharedFlow<HomeSideEffect> = _sideEffects.asSharedFlow()
 
     init {
         loadDownloadHistory()
+        observeDownloadProgress()
+        checkPermissions()
     }
 
     fun onEvent(event: HomeEvent) {
@@ -41,6 +51,7 @@ class HomeViewModel @Inject constructor(
             is HomeEvent.QualitySelected -> onQualitySelected(event.quality)
             is HomeEvent.FormatSelected -> onFormatSelected(event.format)
             is HomeEvent.PauseDownload -> onPauseDownload(event.downloadId)
+            is HomeEvent.ResumeDownload -> onResumeDownload(event.downloadId)
             is HomeEvent.RetryDownload -> onRetryDownload(event.downloadId)
             is HomeEvent.DeleteDownload -> onDeleteDownload(event.downloadId)
             is HomeEvent.ClearDownloads -> onClearDownloads()
@@ -50,42 +61,41 @@ class HomeViewModel @Inject constructor(
             is HomeEvent.ShowFormatSheet -> showFormatSheet()
             is HomeEvent.HideFormatSheet -> hideFormatSheet()
             is HomeEvent.DismissError -> dismissError()
+            is HomeEvent.RequestStoragePermission -> requestStoragePermission(event.activity)
+            is HomeEvent.FilterChanged -> onFilterChanged(event.filter)
         }
     }
 
     private fun onUrlChanged(url: String) {
-        _state.update { it.copy(urlInput = url) }
-        
+        _state.value = _state.value.copy(urlInput = url)
+
         if (isValidYouTubeUrl(url)) {
             analyzeVideo(url)
         } else {
-            _state.update { it.copy(videoInfo = null) }
+            _state.value = _state.value.copy(videoInfo = null)
         }
     }
 
     private fun analyzeVideo(url: String) {
-        _state.update { it.copy(isAnalyzing = true) }
-        
+        _state.value = _state.value.copy(isAnalyzing = true)
+
         viewModelScope.launch {
             when (val result = analyzeVideoUseCase(url)) {
                 is Result.Success -> {
-                    _state.update { 
-                        it.copy(
-                            videoInfo = result.data,
-                            isAnalyzing = false
-                        ) 
-                    }
+                    _state.value = _state.value.copy(
+                        videoInfo = result.data,
+                        isAnalyzing = false
+                    )
                 }
                 is Result.Error -> {
-                    _state.update { 
-                        it.copy(
-                            isAnalyzing = false,
-                            error = result.message
-                        ) 
-                    }
+                    _state.value = _state.value.copy(
+                        isAnalyzing = false,
+                        error = result.message
+                    )
+                    _sideEffects.emit(HomeSideEffect.ShowError(result.message ?: "Unknown error"))
                 }
                 is Result.Loading -> {
-                    // Handle loading if needed
+                    // Handle loading state
                 }
             }
         }
@@ -94,6 +104,14 @@ class HomeViewModel @Inject constructor(
     private fun onDownloadClicked() {
         val url = _state.value.urlInput
         if (url.isNotBlank()) {
+            // Check permissions first
+            if (!_permissionState.value.hasStoragePermission) {
+                viewModelScope.launch {
+                    _sideEffects.emit(HomeSideEffect.RequestStoragePermission)
+                }
+                return
+            }
+
             viewModelScope.launch {
                 val request = DownloadRequest(
                     url = url,
@@ -102,20 +120,19 @@ class HomeViewModel @Inject constructor(
                     title = _state.value.videoInfo?.title ?: "Downloaded Video",
                     fileName = generateFileName()
                 )
-                
+
                 when (val result = downloadVideoUseCase(request)) {
                     is Result.Success -> {
-                        _state.update { 
-                            it.copy(
-                                urlInput = "",
-                                videoInfo = null
-                            ) 
-                        }
-                        _sideEffects.value = HomeSideEffect.ShowMessage("Download started!")
+                        _state.value = _state.value.copy(
+                            urlInput = "",
+                            videoInfo = null
+                        )
+                        _sideEffects.emit(HomeSideEffect.ShowMessage("Download started!"))
                         loadDownloadHistory()
                     }
                     is Result.Error -> {
-                        _state.update { it.copy(error = result.message) }
+                        _state.value = _state.value.copy(error = result.message)
+                        _sideEffects.emit(HomeSideEffect.ShowError("Download failed: ${result.message}"))
                     }
                     is Result.Loading -> {
                         // Handle loading
@@ -125,25 +142,24 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun onQualitySelected(quality: VideoQuality) {
-        _state.update { it.copy(selectedQuality = quality) }
-        hideQualitySheet()
-    }
-
-    private fun onFormatSelected(format: DownloadFormat) {
-        _state.update { it.copy(selectedFormat = format) }
-        hideFormatSheet()
-    }
-
     private fun onPauseDownload(downloadId: String) {
         viewModelScope.launch {
-            // Implementation for pausing downloads
+            downloadTracker.pauseDownload(downloadId)
+            _sideEffects.emit(HomeSideEffect.ShowMessage("Download paused"))
+        }
+    }
+
+    private fun onResumeDownload(downloadId: String) {
+        viewModelScope.launch {
+            downloadTracker.resumeDownload(downloadId)
+            _sideEffects.emit(HomeSideEffect.ShowMessage("Download resumed"))
         }
     }
 
     private fun onRetryDownload(downloadId: String) {
         viewModelScope.launch {
-            // Implementation for retrying downloads
+            downloadTracker.retryDownload(downloadId)
+            _sideEffects.emit(HomeSideEffect.ShowMessage("Retrying download..."))
         }
     }
 
@@ -151,7 +167,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             deleteDownloadUseCase(downloadId)
             loadDownloadHistory()
-            _sideEffects.value = HomeSideEffect.ShowMessage("Download deleted")
+            _sideEffects.emit(HomeSideEffect.ShowMessage("Download deleted"))
         }
     }
 
@@ -159,7 +175,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             // Implementation for clearing all downloads
             loadDownloadHistory()
-            _sideEffects.value = HomeSideEffect.ShowMessage("All downloads cleared")
+            _sideEffects.emit(HomeSideEffect.ShowMessage("All downloads cleared"))
         }
     }
 
@@ -167,34 +183,103 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             clearCompletedDownloadsUseCase()
             loadDownloadHistory()
-            _sideEffects.value = HomeSideEffect.ShowMessage("Completed downloads cleared")
+            _sideEffects.emit(HomeSideEffect.ShowMessage("Completed downloads cleared"))
         }
     }
 
+    private fun onFilterChanged(filter: DownloadFilter) {
+        _state.value = _state.value.copy(selectedFilter = filter)
+    }
+
     private fun showQualitySheet() {
-        _state.update { it.copy(showQualitySheet = true) }
+        _state.value = _state.value.copy(showQualitySheet = true)
     }
 
     private fun hideQualitySheet() {
-        _state.update { it.copy(showQualitySheet = false) }
+        _state.value = _state.value.copy(showQualitySheet = false)
     }
 
     private fun showFormatSheet() {
-        _state.update { it.copy(showFormatSheet = true) }
+        _state.value = _state.value.copy(showFormatSheet = true)
     }
 
     private fun hideFormatSheet() {
-        _state.update { it.copy(showFormatSheet = false) }
+        _state.value = _state.value.copy(showFormatSheet = false)
     }
 
     private fun dismissError() {
-        _state.update { it.copy(error = null) }
+        _state.value = _state.value.copy(error = null)
     }
 
     private fun loadDownloadHistory() {
         viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true)
             val downloads = getDownloadHistoryUseCase()
-            _state.update { it.copy(downloads = downloads) }
+            _state.value = _state.value.copy(
+                downloads = downloads,
+                isLoading = false
+            )
+            updateDownloadStats(downloads)
+        }
+    }
+
+    private fun updateDownloadStats(downloads: List<DownloadItem>) {
+        val totalSize = downloads.sumOf {
+            it.fileSize.replace(" MB", "").toDoubleOrNull() ?: 0.0
+        }
+
+        _state.value = _state.value.copy(
+            downloadStats = DownloadStats(
+                totalDownloads = downloads.size,
+                completedDownloads = downloads.count { it.status == DownloadStatus.COMPLETED },
+                totalSize = "${String.format("%.1f", totalSize)} MB",
+                activeDownloads = downloads.count {
+                    it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED
+                }
+            )
+        )
+    }
+
+    private fun observeDownloadProgress() {
+        viewModelScope.launch {
+            downloadTracker.downloadProgress.collect { progressUpdate ->
+                val currentDownloads = _state.value.downloads.toMutableList()
+                val index = currentDownloads.indexOfFirst { it.id == progressUpdate.downloadId }
+                if (index != -1) {
+                    currentDownloads[index] = currentDownloads[index].copy(
+                        progress = progressUpdate.progress,
+                        downloadSpeed = progressUpdate.speed,
+                        fileSize = progressUpdate.fileSize,
+                        status = progressUpdate.status
+                    )
+                    _state.value = _state.value.copy(downloads = currentDownloads)
+                    updateDownloadStats(currentDownloads)
+                }
+            }
+        }
+    }
+
+    private fun checkPermissions() {
+        viewModelScope.launch {
+            val hasPermission = permissionManager.hasStoragePermission()
+            _permissionState.value = _permissionState.value.copy(hasStoragePermission = hasPermission)
+        }
+    }
+
+    fun requestStoragePermission(activity: Activity) {
+        permissionManager.requestStoragePermission(activity, REQUEST_STORAGE_PERMISSION)
+    }
+
+    fun onPermissionResult(granted: Boolean) {
+        _permissionState.value = _permissionState.value.copy(hasStoragePermission = granted)
+        if (granted) {
+            viewModelScope.launch {
+                _sideEffects.emit(HomeSideEffect.ShowMessage("Storage permission granted"))
+            }
+        } else {
+            viewModelScope.launch {
+                _sideEffects.emit(HomeSideEffect.ShowError("Storage permission required for downloads"))
+            }
         }
     }
 
@@ -213,27 +298,39 @@ class HomeViewModel @Inject constructor(
         )
         return patterns.any { it.matches(url) }
     }
+
+    companion object {
+        const val REQUEST_STORAGE_PERMISSION = 1001
+    }
 }
 
-data class HomeState(
+// Enhanced State Classes
+data class HomeUiState(
     val urlInput: String = "",
     val selectedQuality: VideoQuality = VideoQuality.AUTO,
     val selectedFormat: DownloadFormat = DownloadFormat.MP4,
     val videoInfo: VideoInfo? = null,
     val downloads: List<DownloadItem> = emptyList(),
+    val downloadStats: DownloadStats = DownloadStats(0, 0, "0 MB", 0),
     val isLoading: Boolean = false,
     val isAnalyzing: Boolean = false,
     val error: String? = null,
     val showQualitySheet: Boolean = false,
-    val showFormatSheet: Boolean = false
+    val showFormatSheet: Boolean = false,
+    val selectedFilter: DownloadFilter = DownloadFilter.ALL
+)
+
+data class PermissionState(
+    val hasStoragePermission: Boolean = false
 )
 
 sealed class HomeEvent {
-    data object DownloadClicked : HomeEvent()
     data class UrlChanged(val url: String) : HomeEvent()
+    data object DownloadClicked : HomeEvent()
     data class QualitySelected(val quality: VideoQuality) : HomeEvent()
     data class FormatSelected(val format: DownloadFormat) : HomeEvent()
     data class PauseDownload(val downloadId: String) : HomeEvent()
+    data class ResumeDownload(val downloadId: String) : HomeEvent()
     data class RetryDownload(val downloadId: String) : HomeEvent()
     data class DeleteDownload(val downloadId: String) : HomeEvent()
     data object ClearDownloads : HomeEvent()
@@ -243,9 +340,12 @@ sealed class HomeEvent {
     data object ShowFormatSheet : HomeEvent()
     data object HideFormatSheet : HomeEvent()
     data object DismissError : HomeEvent()
+    data class RequestStoragePermission(val activity: Activity) : HomeEvent()
+    data class FilterChanged(val filter: DownloadFilter) : HomeEvent()
 }
 
 sealed class HomeSideEffect {
     data class ShowMessage(val message: String) : HomeSideEffect()
     data class ShowError(val message: String) : HomeSideEffect()
+    data object RequestStoragePermission : HomeSideEffect()
 }
