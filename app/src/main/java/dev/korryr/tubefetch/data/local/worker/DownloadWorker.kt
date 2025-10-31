@@ -7,13 +7,11 @@ import androidx.work.Data
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import dev.korryr.tubefetch.data.local.FileStorageManager
-import dev.korryr.tubefetch.data.repository.VideoRepositoryImpl
+import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
+import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.model.DownloadStatus
 import kotlinx.coroutines.delay
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.UUID
 
 @HiltWorker
 class DownloadWorker @AssistedInject constructor(

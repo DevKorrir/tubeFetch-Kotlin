@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.korryr.tubefetch.data.local.db.AppDatabase
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
 import dev.korryr.tubefetch.data.remote.VideoService
+import dev.korryr.tubefetch.data.remote.YouTubeNativeService
 import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
 import okhttp3.OkHttpClient
@@ -27,6 +28,13 @@ object AppModule {
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
         return AppDatabase.getInstance(context)
     }
+
+    @Provides
+    @Singleton
+    fun provideYouTubeNativeService(@ApplicationContext context: Context): YouTubeNativeService {
+        return YouTubeNativeService(context)
+    }
+
 
     @Provides
     @Singleton
@@ -50,13 +58,15 @@ object AppModule {
     @Provides
     @Singleton
     fun provideVideoRepository(
-        videoService: VideoService,
+        youTubeService: YouTubeNativeService,
         database: AppDatabase,
+        fileStorageManager: FileStorageManager,
         @ApplicationContext context: Context
     ): VideoRepository {
         return VideoRepositoryImpl(
-            videoService = videoService,
+            youTubeService = youTubeService,
             downloadDao = database.downloadDao(),
+            fileStorageManager = fileStorageManager,
             context = context
         )
     }
