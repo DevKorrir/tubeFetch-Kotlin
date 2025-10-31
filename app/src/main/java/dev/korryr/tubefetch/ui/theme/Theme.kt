@@ -198,7 +198,7 @@ fun TubeFetchTheme(
         }
 
         darkTheme -> DarkColorScheme
-        else -> DarkColorScheme
+        else -> LightColorScheme
     }
 
     MaterialTheme(
