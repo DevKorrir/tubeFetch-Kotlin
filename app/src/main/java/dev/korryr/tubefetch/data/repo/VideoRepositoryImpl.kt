@@ -8,6 +8,7 @@ import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
 import dev.korryr.tubefetch.data.remote.YouTubeNativeService
 import dev.korryr.tubefetch.domain.model.*
 import dev.korryr.tubefetch.domain.repository.VideoRepository
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.File
 import java.util.UUID
@@ -20,20 +21,20 @@ class VideoRepositoryImpl @Inject constructor(
     private val fileStorageManager: FileStorageManager
 ) : VideoRepository {
 
-    override suspend fun analyzeVideo(url: String): Result<VideoInfo> {
+    override suspend fun analyzeVideo(url: String): ApiResult<VideoInfo> {
         return try {
             val result = youTubeService.getVideoInfo(url)
             when (result) {
-                is Result.Success -> Result.Success(result.data)
-                is Result.Error -> Result.Error("Failed to analyze video: ${result.exception?.message}", result.exception)
-                else -> Result.Error("Unknown error analyzing video")
+                is ApiResult.Success -> ApiResult.Success(result.data)
+                is ApiResult.Error -> ApiResult.Error("Failed to analyze video: ${result.exception?.message}", result.exception)
+                is ApiResult.Loading -> ApiResult.Error("Still loading")
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.message}", e)
+            ApiResult.Error("Network error: ${e.message}", e)
         }
     }
 
-    override suspend fun downloadVideo(request: DownloadRequest): Result<Unit> {
+    override suspend fun downloadVideo(request: DownloadRequest): ApiResult<Unit> {
         return try {
             // Create download directory
             val downloadDir = File(
@@ -66,7 +67,7 @@ class VideoRepositoryImpl @Inject constructor(
             )
 
             when (downloadResult) {
-                is Result.Success -> {
+                is ApiResult.Success -> {
                     // Move file to MediaStore and get URI
                     val fileUri = fileStorageManager.saveFileToMediaStore(
                         downloadedFile = downloadResult.data,
@@ -84,19 +85,22 @@ class VideoRepositoryImpl @Inject constructor(
                     )
 
                     downloadDao.updateDownload(completedItem.toEntity())
-                    Result.Success(Unit)
+                    ApiResult.Success(Unit)
                 }
-                is Result.Error -> {
+                is ApiResult.Error -> {
                     // Update with error
                     val failedItem = downloadItem.copy(
                         status = DownloadStatus.FAILED
                     )
                     downloadDao.updateDownload(failedItem.toEntity())
-                    Result.Error("Download failed: ${downloadResult.exception?.message}", downloadResult.exception)
+                    ApiResult.Error("Download failed: ${downloadResult.exception?.message}", downloadResult.exception)
+                }
+                is ApiResult.Loading -> {
+                    ApiResult.Error("Download still in progress")
                 }
             }
         } catch (e: Exception) {
-            Result.Error("Download error: ${e.message}", e)
+            ApiResult.Error("Download error: ${e.message}", e)
         }
     }
 
@@ -126,9 +130,8 @@ class VideoRepositoryImpl @Inject constructor(
     override suspend fun clearCompletedDownloads() {
         // Get completed downloads first to delete their files
         val completedDownloads = downloadDao.getDownloads()
-            .first { entities ->
-                entities.filter { it.status == "COMPLETED" }
-            }
+            .first() // Get the first emission of the flow
+            .filter { it.status == "COMPLETED" } // Filter completed downloads
 
         completedDownloads.forEach { entity ->
             deleteFileFromStorage(entity.fileUri)

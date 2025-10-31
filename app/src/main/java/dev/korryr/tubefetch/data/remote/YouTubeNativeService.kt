@@ -2,9 +2,9 @@ package dev.korryr.tubefetch.data.remote
 
 import android.content.Context
 import android.util.Log
-import com.github.yausername.youtubedl_android.YoutubeDL
-import com.github.yausername.youtubedl_android.YoutubeDLRequest
-import com.github.yausername.youtubedl_android.YoutubeDLResponse
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLRequest
+import com.yausername.youtubedl_android.YoutubeDLResponse
 import dev.korryr.tubefetch.domain.model.VideoInfo
 import dev.korryr.tubefetch.domain.model.VideoQuality
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +36,7 @@ class YouTubeNativeService @Inject constructor(
             request.addOption("--dump-json")
             request.addOption("--no-playlist")
             
-            val response: YoutubeDLResponse = YoutubeDL.getInstance().execute(request, "/dev/null")
+            val response: YoutubeDLResponse = YoutubeDL.getInstance().execute(request, null)
             val jsonOutput = response.out
             val json = JSONObject(jsonOutput)
             
@@ -154,6 +154,14 @@ class YouTubeNativeService @Inject constructor(
         
         return qualities.distinct()
     }
+
+    private fun <T> MutableList<T>.addNotExists(element: T) {
+        if (!this.contains(element)) {
+            this.add(element)
+        }
+
+    }
+
     
     private fun <T> MutableList<T>.addIfNotExists(element: T) {
         if (!this.contains(element)) {

@@ -5,6 +5,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.korryr.tubefetch.data.remote.DownloadFilter
 import dev.korryr.tubefetch.domain.model.*
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
@@ -81,20 +82,20 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             when (val result = analyzeVideoUseCase(url)) {
-                is Result.Success -> {
+                is ApiResult.Success -> {
                     _state.value = _state.value.copy(
                         videoInfo = result.data,
                         isAnalyzing = false
                     )
                 }
-                is Result.Error -> {
+                is ApiResult.Error -> {
                     _state.value = _state.value.copy(
                         isAnalyzing = false,
                         error = result.message
                     )
-                    _sideEffects.emit(HomeSideEffect.ShowError(result.message ?: "Unknown error"))
+                    _sideEffects.emit(HomeSideEffect.ShowError(result.message))
                 }
-                is Result.Loading -> {
+                is ApiResult.Loading -> {
                     // Handle loading state
                 }
             }

@@ -14,6 +14,16 @@ android {
     namespace = "dev.korryr.tubefetch"
     compileSdk = 36
 
+    // Load keys.properties
+    val keysProperties = file("../keys.properties")
+    if (keysProperties.exists()) {
+        val keys = Properties()
+        keys.load(keysProperties.inputStream())
+        keys.forEach { key, value ->
+            project.extra[key.toString()] = value
+        }
+    }
+
     defaultConfig {
         applicationId = "dev.korryr.tubefetch"
         minSdk = 24
@@ -28,16 +38,6 @@ android {
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${properties["YOUTUBE_API_KEY"]}\"")
         buildConfigField("String", "YOUTUBE_BASE_URL", "\"${properties["YOUTUBE_BASE_URL"]}\"")
 
-    }
-
-    // Load keys.properties
-    val keysProperties = file("../keys.properties")
-    if (keysProperties.exists()) {
-        val keys = Properties()
-        keys.load(keysProperties.inputStream())
-        keys.forEach { key, value ->
-            project.extra[key.toString()] = value
-        }
     }
 
     buildTypes {
@@ -97,15 +97,15 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
     // Modern Networking Stack
-    implementation("com.squareup.retrofit2:retrofit:3.0.0")
-    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:5.2.1")
     implementation("com.squareup.okhttp3:logging-interceptor:5.2.1")
 
     // WorkManager
-//    implementation("androidx.work:work-runtime-ktx:2.11.0")
-//    implementation("androidx.hilt:hilt-work:1.3.0")
-//    //ksp("androidx.hilt:hilt-compiler:1.3.0")
+    implementation("androidx.work:work-runtime-ktx:2.11.0")
+    implementation("androidx.hilt:hilt-work:1.3.0")
+    ksp("androidx.hilt:hilt-compiler:1.3.0")
 
 
     // Local Database (Room) - for offline storage
