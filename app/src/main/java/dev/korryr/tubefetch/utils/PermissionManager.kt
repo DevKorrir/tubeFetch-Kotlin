@@ -7,9 +7,11 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import javax.inject.Inject
 
-class PermissionManager @Inject constructor() {
+class PermissionManager @Inject constructor(
+    private val context: Context
+) {
     
-    fun hasStoragePermission(context: Context): Boolean {
+    fun hasStoragePermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.WRITE_EXTERNAL_STORAGE

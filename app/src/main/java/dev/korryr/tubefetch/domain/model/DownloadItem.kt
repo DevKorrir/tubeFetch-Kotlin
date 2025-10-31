@@ -1,8 +1,10 @@
 package dev.korryr.tubefetch.domain.model
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import java.time.LocalDateTime
 
-data class DownloadItem(
+data class DownloadItem @RequiresApi(Build.VERSION_CODES.O) constructor(
     val id: String,
     val title: String,
     val duration: String,
@@ -18,6 +20,7 @@ data class DownloadItem(
     val viewCount: String = "",
     val uploadDate: String = "",
     val downloadPath: String = "",
+    val fileName: String = "",
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val fileUri: String = "" // MediaStore URI
 )

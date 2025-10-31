@@ -17,7 +17,6 @@ import dev.korryr.tubefetch.domain.tracker.DownloadTracker
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
 import javax.inject.Singleton
 
 @Module
@@ -37,24 +36,24 @@ object AppModule {
     }
 
 
-    @Provides
-    @Singleton
-    fun provideVideoService(): VideoService {
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-
-        val client = OkHttpClient.Builder()
-            .addInterceptor(logging)
-            .build()
-
-        return Retrofit.Builder()
-            .baseUrl(VideoService.BASE_URL)
-            .addConverterFactory(MoshiConverterFactory.create())
-            .client(client)
-            .build()
-            .create(VideoService::class.java)
-    }
+//    @Provides
+//    @Singleton
+//    fun provideVideoService(): VideoService {
+//        val logging = HttpLoggingInterceptor().apply {
+//            level = HttpLoggingInterceptor.Level.BODY
+//        }
+//
+//        val client = OkHttpClient.Builder()
+//            .addInterceptor(logging)
+//            .build()
+//
+//        return Retrofit.Builder()
+//            .baseUrl(VideoService.BASE_URL)
+//            .addConverterFactory(MoshiConverterFactory.create())
+//            .client(client)
+//            .build()
+//            .create(VideoService::class.java)
+//    }
 
     @Provides
     @Singleton

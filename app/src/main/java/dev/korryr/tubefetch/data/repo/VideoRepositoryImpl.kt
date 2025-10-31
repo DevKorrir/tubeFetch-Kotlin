@@ -2,12 +2,21 @@ package dev.korryr.tubefetch.data.repo
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import androidx.annotation.RequiresApi
 import dev.korryr.tubefetch.data.local.dao.DownloadDao
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
 import dev.korryr.tubefetch.data.remote.YouTubeNativeService
-import dev.korryr.tubefetch.domain.model.*
+import dev.korryr.tubefetch.domain.model.ApiResult
+import dev.korryr.tubefetch.domain.model.DownloadFormat
+import dev.korryr.tubefetch.domain.model.DownloadItem
+import dev.korryr.tubefetch.domain.model.DownloadRequest
+import dev.korryr.tubefetch.domain.model.DownloadStatus
+import dev.korryr.tubefetch.domain.model.VideoInfo
+import dev.korryr.tubefetch.domain.model.VideoQuality
 import dev.korryr.tubefetch.domain.repository.VideoRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.File
@@ -23,17 +32,14 @@ class VideoRepositoryImpl @Inject constructor(
 
     override suspend fun analyzeVideo(url: String): ApiResult<VideoInfo> {
         return try {
-            val result = youTubeService.getVideoInfo(url)
-            when (result) {
-                is ApiResult.Success -> ApiResult.Success(result.data)
-                is ApiResult.Error -> ApiResult.Error("Failed to analyze video: ${result.exception?.message}", result.exception)
-                is ApiResult.Loading -> ApiResult.Error("Still loading")
-            }
+            // Now this returns ApiResult directly
+            youTubeService.getVideoInfo(url)
         } catch (e: Exception) {
             ApiResult.Error("Network error: ${e.message}", e)
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun downloadVideo(request: DownloadRequest): ApiResult<Unit> {
         return try {
             // Create download directory
@@ -58,7 +64,7 @@ class VideoRepositoryImpl @Inject constructor(
             // Save to database
             downloadDao.insertDownload(downloadItem.toEntity())
 
-            // Start download
+            // Start download - this now returns ApiResult<File>
             val downloadResult = youTubeService.downloadVideo(
                 url = request.url,
                 outputDir = downloadDir,
@@ -93,7 +99,7 @@ class VideoRepositoryImpl @Inject constructor(
                         status = DownloadStatus.FAILED
                     )
                     downloadDao.updateDownload(failedItem.toEntity())
-                    ApiResult.Error("Download failed: ${downloadResult.exception?.message}", downloadResult.exception)
+                    ApiResult.Error("Download failed: ${downloadResult.message}", downloadResult.exception)
                 }
                 is ApiResult.Loading -> {
                     ApiResult.Error("Download still in progress")
@@ -104,16 +110,25 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getDownloadHistory(): List<DownloadItem> {
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun getDownloadHistory(): Flow<List<DownloadItem>> {
         return downloadDao.getDownloads().map { entities ->
             entities.map { it.toDownloadItem() }
         }
     }
 
+//    override fun getDownloadHistory(): Flow<List<DownloadItem>> {
+//        return downloadDao.getDownloads().map { entities ->
+//            entities.map { it.toDownloadItem() }
+//        }
+//    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun getDownloadById(id: String): DownloadItem? {
         return downloadDao.getDownloadById(id)?.toDownloadItem()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun updateDownload(download: DownloadItem) {
         downloadDao.updateDownload(download.toEntity())
     }
@@ -164,5 +179,52 @@ class VideoRepositoryImpl @Inject constructor(
                 }
             }
         }
+    }
+
+    // Add these extension functions if they don't exist
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun DownloadItem.toEntity(): dev.korryr.tubefetch.data.local.entity.DownloadEntity {
+        return dev.korryr.tubefetch.data.local.entity.DownloadEntity(
+            id = id,
+            title = title,
+            duration = duration,
+            thumbnail = thumbnail,
+            status = status.name,
+            progress = progress,
+            fileSize = fileSize,
+            downloadSpeed = downloadSpeed,
+            quality = quality.name,
+            format = format.name,
+            url = url,
+            channelName = channelName,
+            viewCount = viewCount,
+            uploadDate = uploadDate,
+            downloadPath = downloadPath,
+            fileUri = fileUri,
+            createdAt = createdAt
+        )
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun dev.korryr.tubefetch.data.local.entity.DownloadEntity.toDownloadItem(): DownloadItem {
+        return DownloadItem(
+            id = id,
+            title = title,
+            duration = duration,
+            thumbnail = thumbnail,
+            status = DownloadStatus.valueOf(status),
+            progress = progress,
+            fileSize = fileSize,
+            downloadSpeed = downloadSpeed,
+            quality = VideoQuality.values().find { it.name == quality } ?: VideoQuality.AUTO,
+            format = DownloadFormat.values().find { it.name == format } ?: DownloadFormat.MP4,
+            url = url,
+            channelName = channelName,
+            viewCount = viewCount,
+            uploadDate = uploadDate,
+            downloadPath = downloadPath,
+            fileUri = fileUri,
+            createdAt = createdAt
+        )
     }
 }

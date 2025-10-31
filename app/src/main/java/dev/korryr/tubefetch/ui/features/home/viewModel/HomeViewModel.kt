@@ -1,15 +1,29 @@
 package dev.korryr.tubefetch.ui.features.home.viewModel
 
 import android.app.Activity
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.korryr.tubefetch.data.remote.DownloadFilter
-import dev.korryr.tubefetch.domain.model.*
+import dev.korryr.tubefetch.domain.model.ApiResult
+import dev.korryr.tubefetch.domain.model.DownloadFormat
+import dev.korryr.tubefetch.domain.model.DownloadItem
+import dev.korryr.tubefetch.domain.model.DownloadRequest
+import dev.korryr.tubefetch.domain.model.DownloadStats
+import dev.korryr.tubefetch.domain.model.DownloadStatus
+import dev.korryr.tubefetch.domain.model.VideoInfo
+import dev.korryr.tubefetch.domain.model.VideoQuality
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
-import dev.korryr.tubefetch.domain.usecase.*
+import dev.korryr.tubefetch.domain.usecase.AnalyzeVideoUseCase
+import dev.korryr.tubefetch.domain.usecase.ClearCompletedDownloadsUseCase
+import dev.korryr.tubefetch.domain.usecase.DeleteDownloadUseCase
+import dev.korryr.tubefetch.domain.usecase.DownloadVideoUseCase
+import dev.korryr.tubefetch.domain.usecase.GetDownloadHistoryUseCase
+import dev.korryr.tubefetch.domain.usecase.UpdateDownloadUseCase
 import dev.korryr.tubefetch.utils.PermissionManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +31,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@RequiresApi(Build.VERSION_CODES.O)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val analyzeVideoUseCase: AnalyzeVideoUseCase,
@@ -29,6 +44,7 @@ class HomeViewModel @Inject constructor(
     private val downloadTracker: DownloadTracker
 ) : ViewModel() {
 
+
     private val _state = mutableStateOf(HomeUiState())
     val state: State<HomeUiState> = _state
 
@@ -38,6 +54,7 @@ class HomeViewModel @Inject constructor(
     // FIX: Use MutableSharedFlow instead of mutableSharedFlow
     private val _sideEffects = MutableSharedFlow<HomeSideEffect>()
     val sideEffects: SharedFlow<HomeSideEffect> = _sideEffects.asSharedFlow()
+
 
     init {
         loadDownloadHistory()
@@ -123,7 +140,7 @@ class HomeViewModel @Inject constructor(
                 )
 
                 when (val result = downloadVideoUseCase(request)) {
-                    is Result.Success -> {
+                    is ApiResult.Success -> {
                         _state.value = _state.value.copy(
                             urlInput = "",
                             videoInfo = null
@@ -131,11 +148,11 @@ class HomeViewModel @Inject constructor(
                         _sideEffects.emit(HomeSideEffect.ShowMessage("Download started!"))
                         loadDownloadHistory()
                     }
-                    is Result.Error -> {
+                    is ApiResult.Error -> {
                         _state.value = _state.value.copy(error = result.message)
                         _sideEffects.emit(HomeSideEffect.ShowError("Download failed: ${result.message}"))
                     }
-                    is Result.Loading -> {
+                    is ApiResult.Loading -> {
                         // Handle loading
                     }
                 }
@@ -148,6 +165,16 @@ class HomeViewModel @Inject constructor(
             downloadTracker.pauseDownload(downloadId)
             _sideEffects.emit(HomeSideEffect.ShowMessage("Download paused"))
         }
+    }
+
+    private fun onQualitySelected(quality: VideoQuality) {
+        _state.value = _state.value.copy(selectedQuality = quality)
+        hideQualitySheet()
+    }
+
+    private fun onFormatSelected(format: DownloadFormat) {
+        _state.value = _state.value.copy(selectedFormat = format)
+        hideFormatSheet()
     }
 
     private fun onResumeDownload(downloadId: String) {
@@ -214,13 +241,14 @@ class HomeViewModel @Inject constructor(
 
     private fun loadDownloadHistory() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
-            val downloads = getDownloadHistoryUseCase()
-            _state.value = _state.value.copy(
-                downloads = downloads,
-                isLoading = false
-            )
-            updateDownloadStats(downloads)
+            getDownloadHistoryUseCase()
+                .collect { downloads ->
+                    _state.value = _state.value.copy(
+                        downloads = downloads,
+                        isLoading = false
+                    )
+                    updateDownloadStats(downloads)
+                }
         }
     }
 
@@ -241,20 +269,26 @@ class HomeViewModel @Inject constructor(
         )
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun observeDownloadProgress() {
         viewModelScope.launch {
             downloadTracker.downloadProgress.collect { progressUpdate ->
-                val currentDownloads = _state.value.downloads.toMutableList()
-                val index = currentDownloads.indexOfFirst { it.id == progressUpdate.downloadId }
-                if (index != -1) {
-                    currentDownloads[index] = currentDownloads[index].copy(
-                        progress = progressUpdate.progress,
-                        downloadSpeed = progressUpdate.speed,
-                        fileSize = progressUpdate.fileSize,
-                        status = progressUpdate.status
-                    )
-                    _state.value = _state.value.copy(downloads = currentDownloads)
-                    updateDownloadStats(currentDownloads)
+
+                // Handle null case
+                progressUpdate?.let { update ->
+
+                    val currentDownloads = _state.value.downloads.toMutableList()
+                    val index = currentDownloads.indexOfFirst { it.id == update.downloadId }
+                    if (index != -1) {
+                        currentDownloads[index] = currentDownloads[index].copy(
+                            progress = update.progress,
+                            downloadSpeed = update.speed,
+                            fileSize = update.fileSize,
+                            status = update.status
+                        )
+                        _state.value = _state.value.copy(downloads = currentDownloads)
+                        updateDownloadStats(currentDownloads)
+                    }
                 }
             }
         }
@@ -262,7 +296,8 @@ class HomeViewModel @Inject constructor(
 
     private fun checkPermissions() {
         viewModelScope.launch {
-            val hasPermission = permissionManager.hasStoragePermission()
+            val hasPermission = permissionManager.hasStoragePermission(
+            )
             _permissionState.value = _permissionState.value.copy(hasStoragePermission = hasPermission)
         }
     }
