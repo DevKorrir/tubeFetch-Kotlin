@@ -7,7 +7,7 @@ import android.os.Environment
 import androidx.annotation.RequiresApi
 import dev.korryr.tubefetch.data.local.dao.DownloadDao
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
-import dev.korryr.tubefetch.data.remote.YouTubeNativeService
+import dev.korryr.tubefetch.data.remote.YouTubeWebServiceImpl
 import dev.korryr.tubefetch.domain.model.ApiResult
 import dev.korryr.tubefetch.domain.model.DownloadFormat
 import dev.korryr.tubefetch.domain.model.DownloadItem
@@ -16,15 +16,20 @@ import dev.korryr.tubefetch.domain.model.DownloadStatus
 import dev.korryr.tubefetch.domain.model.VideoInfo
 import dev.korryr.tubefetch.domain.model.VideoQuality
 import dev.korryr.tubefetch.domain.repository.VideoRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class VideoRepositoryImpl @Inject constructor(
-    private val youTubeService: YouTubeNativeService,
+    private val youTubeWebService: YouTubeWebServiceImpl, // ADD THIS
     private val downloadDao: DownloadDao,
     private val context: Context,
     private val fileStorageManager: FileStorageManager
@@ -32,8 +37,8 @@ class VideoRepositoryImpl @Inject constructor(
 
     override suspend fun analyzeVideo(url: String): ApiResult<VideoInfo> {
         return try {
-            // Now this returns ApiResult directly
-            youTubeService.getVideoInfo(url)
+            // Use the Web API service instead
+            youTubeWebService.getVideoInfo(url)
         } catch (e: Exception) {
             ApiResult.Error("Network error: ${e.message}", e)
         }
@@ -64,13 +69,9 @@ class VideoRepositoryImpl @Inject constructor(
             // Save to database
             downloadDao.insertDownload(downloadItem.toEntity())
 
-            // Start download - this now returns ApiResult<File>
-            val downloadResult = youTubeService.downloadVideo(
-                url = request.url,
-                outputDir = downloadDir,
-                format = request.format.extension,
-                quality = request.quality.name
-            )
+            // For Web API, we need to handle download differently
+            // Since Web API returns a download URL, we need to download the file ourselves
+            val downloadResult = downloadWithWebApi(request, downloadDir)
 
             when (downloadResult) {
                 is ApiResult.Success -> {
@@ -110,18 +111,90 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
+
+    private suspend fun downloadWithWebApi(
+        request: DownloadRequest,
+        outputDir: File
+    ): ApiResult<File> {
+        return try {
+            // Step 1: Get download URL from Web API
+            val downloadUrlResult = youTubeWebService.getDownloadUrl(
+                url = request.url,
+                format = request.format.extension,
+                quality = request.quality.name
+            )
+
+            when (downloadUrlResult) {
+                is ApiResult.Success -> {
+                    // Step 2: Download the file from the URL
+                    val downloadedFile = downloadFileFromUrl(
+                        downloadUrl = downloadUrlResult.data.url,
+                        outputDir = outputDir,
+                        fileName = request.fileName
+                    )
+
+                    if (downloadedFile != null && downloadedFile.exists()) {
+                        ApiResult.Success(downloadedFile)
+                    } else {
+                        ApiResult.Error("Failed to download file from URL")
+                    }
+                }
+                is ApiResult.Error -> {
+                    ApiResult.Error("Failed to get download URL: ${downloadUrlResult.message}")
+                }
+                is ApiResult.Loading -> {
+                    ApiResult.Error("Still getting download URL")
+                }
+            }
+        } catch (e: Exception) {
+            ApiResult.Error("Web API download failed: ${e.message}")
+        }
+    }
+
+
+    private suspend fun downloadFileFromUrl(
+        downloadUrl: String,
+        outputDir: File,
+        fileName: String
+    ): File? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val outputFile = File(outputDir, fileName)
+
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .build()
+
+                val request = Request.Builder()
+                    .url(downloadUrl)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    response.body?.byteStream()?.use { inputStream ->
+                        outputFile.outputStream().use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                }
+
+                outputFile
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun getDownloadHistory(): Flow<List<DownloadItem>> {
         return downloadDao.getDownloads().map { entities ->
             entities.map { it.toDownloadItem() }
         }
     }
-
-//    override fun getDownloadHistory(): Flow<List<DownloadItem>> {
-//        return downloadDao.getDownloads().map { entities ->
-//            entities.map { it.toDownloadItem() }
-//        }
-//    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun getDownloadById(id: String): DownloadItem? {
@@ -145,8 +218,8 @@ class VideoRepositoryImpl @Inject constructor(
     override suspend fun clearCompletedDownloads() {
         // Get completed downloads first to delete their files
         val completedDownloads = downloadDao.getDownloads()
-            .first() // Get the first emission of the flow
-            .filter { it.status == "COMPLETED" } // Filter completed downloads
+            .first()
+            .filter { it.status == "COMPLETED" }
 
         completedDownloads.forEach { entity ->
             deleteFileFromStorage(entity.fileUri)
@@ -181,7 +254,6 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    // Add these extension functions if they don't exist
     @RequiresApi(Build.VERSION_CODES.O)
     private fun DownloadItem.toEntity(): dev.korryr.tubefetch.data.local.entity.DownloadEntity {
         return dev.korryr.tubefetch.data.local.entity.DownloadEntity(

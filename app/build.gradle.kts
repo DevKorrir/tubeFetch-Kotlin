@@ -136,6 +136,17 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
 
     // YouTube DL for Android (Java wrapper)
-    implementation("com.github.yausername.youtubedl-android:library:0.13.0")
-    implementation("com.github.yausername.youtubedl-android:ffmpeg:0.13.0")
+//    implementation("com.github.yausername.youtubedl-android:library:0.13.0")
+//    implementation("com.github.yausername.youtubedl-android:ffmpeg:0.13.0")
+
+//    implementation("com.github.yausername.youtubedl-android:library:0.14.0")
+//    implementation("com.github.yausername.youtubedl-android:ffmpeg:0.14.0")
+
+//    implementation("com.github.yausername.yt-dlp-android:library:0.1.0")
+//    implementation("com.github.yausername.yt-dlp-android:ffmpeg:0.1.0")
+
+
+        //implementation("com.github.sealed:JYouTubeDownloader:1.1")
+
+
 }

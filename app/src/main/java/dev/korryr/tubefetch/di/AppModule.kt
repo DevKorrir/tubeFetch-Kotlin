@@ -9,7 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.korryr.tubefetch.data.local.db.AppDatabase
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
-import dev.korryr.tubefetch.data.remote.YouTubeNativeService
+import dev.korryr.tubefetch.data.remote.YouTubeWebServiceImpl
 import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
@@ -30,20 +30,20 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideYouTubeNativeService(@ApplicationContext context: Context): YouTubeNativeService {
-        return YouTubeNativeService(context)
+    fun provideYouTubeWebService(): YouTubeWebServiceImpl {
+        return YouTubeWebServiceImpl()
     }
 
     @Provides
     @Singleton
     fun provideVideoRepository(
-        youTubeService: YouTubeNativeService,
+        youTubeWebService: YouTubeWebServiceImpl,
         database: AppDatabase,
         fileStorageManager: FileStorageManager,
         @ApplicationContext context: Context
     ): VideoRepository {
         return VideoRepositoryImpl(
-            youTubeService = youTubeService,
+            youTubeWebService = youTubeWebService,
             downloadDao = database.downloadDao(),
             fileStorageManager = fileStorageManager,
             context = context
