@@ -9,14 +9,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.korryr.tubefetch.data.local.db.AppDatabase
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
-import dev.korryr.tubefetch.data.remote.VideoService
 import dev.korryr.tubefetch.data.remote.YouTubeNativeService
 import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
+import dev.korryr.tubefetch.utils.PermissionManager
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
 import javax.inject.Singleton
 
 @Module
@@ -34,26 +33,6 @@ object AppModule {
     fun provideYouTubeNativeService(@ApplicationContext context: Context): YouTubeNativeService {
         return YouTubeNativeService(context)
     }
-
-
-//    @Provides
-//    @Singleton
-//    fun provideVideoService(): VideoService {
-//        val logging = HttpLoggingInterceptor().apply {
-//            level = HttpLoggingInterceptor.Level.BODY
-//        }
-//
-//        val client = OkHttpClient.Builder()
-//            .addInterceptor(logging)
-//            .build()
-//
-//        return Retrofit.Builder()
-//            .baseUrl(VideoService.BASE_URL)
-//            .addConverterFactory(MoshiConverterFactory.create())
-//            .client(client)
-//            .build()
-//            .create(VideoService::class.java)
-//    }
 
     @Provides
     @Singleton
@@ -77,6 +56,19 @@ object AppModule {
         return FileStorageManager(context)
     }
 
+    // ADD THIS: PermissionManager provider
+    @Provides
+    @Singleton
+    fun providePermissionManager(@ApplicationContext context: Context): PermissionManager {
+        return PermissionManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDownloadTracker(repository: VideoRepository): DownloadTracker {
+        return DownloadTracker(repository)
+    }
+
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
@@ -91,11 +83,5 @@ object AppModule {
     @Singleton
     fun provideWorkManager(@ApplicationContext context: Context): WorkManager {
         return WorkManager.getInstance(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideDownloadTracker(repository: VideoRepository): DownloadTracker {
-        return DownloadTracker(repository)
     }
 }
