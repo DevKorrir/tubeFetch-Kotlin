@@ -120,8 +120,7 @@ class VideoRepositoryImpl @Inject constructor(
             // Step 1: Get download URL from Web API
             val downloadUrlResult = youTubeWebService.getDownloadUrl(
                 url = request.url,
-                format = request.format.extension,
-                quality = request.quality.name
+                format = request.format.extension
             )
 
             when (downloadUrlResult) {
