@@ -29,6 +29,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.korryr.tubefetch.data.remote.DownloadFilter
 import dev.korryr.tubefetch.domain.model.DownloadFormat
@@ -51,9 +52,10 @@ import dev.korryr.tubefetch.ui.features.home.viewModel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EnhancedHomeScreen(
+fun HomeScreen(
+    navController: androidx.navigation.NavController,
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.state
     val permissionState by viewModel.permissionState

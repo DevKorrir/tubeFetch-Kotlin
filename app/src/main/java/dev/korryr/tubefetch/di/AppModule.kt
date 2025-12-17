@@ -11,6 +11,7 @@ import dev.korryr.tubefetch.BuildConfig
 import dev.korryr.tubefetch.data.local.db.AppDatabase
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
 import dev.korryr.tubefetch.data.remote.YouTubeWebService
+import dev.korryr.tubefetch.data.remote.YouTubeWebServiceImpl
 import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
@@ -87,8 +88,16 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideYouTubeWebServiceImpl(
+        youTubeWebService: YouTubeWebService
+    ): YouTubeWebServiceImpl {
+        return YouTubeWebServiceImpl(youTubeWebService)
+    }
+
+    @Provides
+    @Singleton
     fun provideVideoRepository(
-        youTubeWebService: YouTubeWebService, // <--- interface (not impl)
+        youTubeWebService: YouTubeWebServiceImpl, // <--- interface (not impl)
         database: AppDatabase,
         fileStorageManager: FileStorageManager,
         @ApplicationContext context: Context
