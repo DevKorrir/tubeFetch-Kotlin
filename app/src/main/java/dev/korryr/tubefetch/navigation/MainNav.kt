@@ -1,5 +1,6 @@
 package dev.korryr.tubefetch.navigation
 
+import HomeScreen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -7,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import dev.korryr.tubefetch.ui.features.home.view.HomeScreen
+import dev.korryr.tubefetch.ui.features.history.view.DownloadsScreen
 
 @Composable
 fun MainNav(
@@ -25,6 +26,14 @@ fun MainNav(
         ) {
             composable(route = Routes.Home.route) {
                 HomeScreen(navController = navController)
+            }
+
+            composable(route = Routes.Downloads.route) {
+                DownloadsScreen()
+            }
+
+            composable(route = Routes.Settings.route) {
+                // SettingsScreen() - You'll create this later
             }
         }
     }
