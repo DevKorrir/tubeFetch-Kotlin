@@ -100,13 +100,15 @@ object AppModule {
         youTubeWebService: YouTubeWebServiceImpl, // <--- interface (not impl)
         database: AppDatabase,
         fileStorageManager: FileStorageManager,
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        workManager: WorkManager
     ): VideoRepository {
         return VideoRepositoryImpl(
             youTubeWebService = youTubeWebService,
             downloadDao = database.downloadDao(),
             fileStorageManager = fileStorageManager,
-            context = context
+            context = context,
+            workManager = workManager
         )
     }
 

@@ -1,7 +1,11 @@
 package dev.korryr.tubefetch.data.remote
 
+import android.annotation.SuppressLint
+import android.util.Log
+import dev.korryr.tubefetch.BuildConfig
 import dev.korryr.tubefetch.domain.model.ApiResult
 import dev.korryr.tubefetch.domain.model.VideoInfo
+import dev.korryr.tubefetch.domain.model.VideoQuality
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -37,6 +41,11 @@ class YouTubeWebServiceImpl @Inject constructor(
         val videoId = extractVideoId(url)
             ?: return@withContext ApiResult.Error("Invalid YouTube URL")
 
+        // Debug logging
+        Log.d("YouTubeWebService", "Fetching video info for ID: $videoId")
+        Log.d("YouTubeWebService", "API Base URL: ${BuildConfig.YOUTUBE_BASE_URL}")
+        Log.d("YouTubeWebService", "API Key: ${BuildConfig.YOUTUBE_API_KEY.take(10)}...")
+
         try {
             val response = service.getVideoDetails(
                 videoId = videoId,
@@ -57,7 +66,11 @@ class YouTubeWebServiceImpl @Inject constructor(
         }
     }
 
-    suspend fun getDownloadUrl(url: String, format: String): ApiResult<DownloadUrlResponse> = withContext(Dispatchers.IO) {
+    suspend fun getDownloadUrl(
+        url: String,
+        format: String,
+        quality: VideoQuality?
+    ): ApiResult<DownloadUrlResponse> = withContext(Dispatchers.IO) {
         val videoId = extractVideoId(url)
             ?: return@withContext ApiResult.Error("Invalid YouTube URL")
 
@@ -83,7 +96,7 @@ class YouTubeWebServiceImpl @Inject constructor(
                 chooseAudioStream(audioItems, format)
             } else {
                 val videoItems = response.videos?.items.orEmpty()
-                chooseVideoStream(videoItems, format)
+                chooseVideoStream(videoItems, format, quality)
             }
 
             if (downloadStream == null) {
@@ -135,10 +148,11 @@ class YouTubeWebServiceImpl @Inject constructor(
 
     private fun extractVideoId(url: String): String? {
         val patterns = listOf(
-            Regex("v=([\\w-]+)"),
-            Regex("youtu\\.be/([\\w-]+)"),
-            Regex("embed/([\\w-]+)")
+            Regex(""\"v=([\w-]+)""\"),
+            Regex(""\"youtu\.be/([\w-]+)""\"),
+            Regex(""\"embed/([\w-]+)""\")
         )
+
 
         for (pattern in patterns) {
             val match = pattern.find(url)
@@ -202,11 +216,41 @@ class YouTubeWebServiceImpl @Inject constructor(
 
     private fun chooseVideoStream(
         items: List<VideoInfoResponse.VideoItem>,
-        desiredExtension: String
+        desiredExtension: String,
+        desiredQuality: VideoQuality?
     ): VideoInfoResponse.VideoItem? {
-        val normalized = desiredExtension.lowercase()
-        val withExt = items.filter { it.extension?.equals(normalized, ignoreCase = true) == true }
-        return withExt.firstOrNull() ?: items.firstOrNull()
+        if (items.isEmpty()) return null
+
+        val normalizedExt = desiredExtension.lowercase()
+        val extensionFiltered = items.filter { it.extension?.equals(normalizedExt, ignoreCase = true) == true }
+        val candidates = if (extensionFiltered.isNotEmpty()) extensionFiltered else items
+
+        val qualitySpecific = when (desiredQuality) {
+            null, VideoQuality.AUTO -> emptyList()
+            VideoQuality.SD360 -> filterByQuality(candidates, listOf("360p"))
+            VideoQuality.SD480 -> filterByQuality(candidates, listOf("480p"))
+            VideoQuality.HD720 -> filterByQuality(candidates, listOf("720p"))
+            VideoQuality.HD1080 -> filterByQuality(candidates, listOf("1080p"))
+            VideoQuality.QHD1440 -> filterByQuality(candidates, listOf("1440p"))
+            VideoQuality.UHD2160, VideoQuality.UHD4K -> filterByQuality(candidates, listOf("2160p", "4K"))
+        }
+
+        val listToPickFrom = if (qualitySpecific.isNotEmpty()) qualitySpecific else candidates
+
+        // Prefer the highest resolution available among the remaining candidates
+        return listToPickFrom.maxByOrNull { it.height ?: 0 }
+    }
+
+    private fun filterByQuality(
+        items: List<VideoInfoResponse.VideoItem>,
+        labels: List<String>
+    ): List<VideoInfoResponse.VideoItem> {
+        if (labels.isEmpty()) return emptyList()
+        val normalized = labels.map { it.lowercase() }
+        return items.filter { item ->
+            val q = item.quality?.lowercase()
+            q != null && normalized.contains(q)
+        }
     }
 
     private fun chooseAudioStream(

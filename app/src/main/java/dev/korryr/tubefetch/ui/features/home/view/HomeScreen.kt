@@ -197,7 +197,8 @@ fun HomeScreen(
         if (uiState.showQualitySheet) {
             QualitySelectionSheet(
                 selectedQuality = uiState.selectedQuality,
-                availableQualities = VideoQuality.values().toList(),
+                availableQualities = uiState.videoInfo?.availableQualities?.takeIf { it.isNotEmpty() }
+                    ?: VideoQuality.values().toList(),
                 onQualitySelected = { viewModel.onEvent(HomeEvent.QualitySelected(it)) },
                 onDismiss = { viewModel.onEvent(HomeEvent.HideQualitySheet) }
             )

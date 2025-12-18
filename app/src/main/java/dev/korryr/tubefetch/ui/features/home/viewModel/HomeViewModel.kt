@@ -1,4 +1,3 @@
-// app/ui/features/home/viewModel/HomeViewModel.kt
 package dev.korryr.tubefetch.ui.features.home.viewModel
 
 import android.app.Activity
@@ -12,7 +11,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.korryr.tubefetch.domain.model.ApiResult
 import dev.korryr.tubefetch.domain.model.DownloadFormat
 import dev.korryr.tubefetch.domain.model.DownloadRequest
-import dev.korryr.tubefetch.domain.model.DownloadStats
 import dev.korryr.tubefetch.domain.model.VideoInfo
 import dev.korryr.tubefetch.domain.model.VideoQuality
 import dev.korryr.tubefetch.domain.usecase.AnalyzeVideoUseCase
@@ -199,12 +197,13 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun isValidYouTubeUrl(url: String): Boolean {
-        val patterns = listOf(
-            Regex("^https?://(www\\.)?youtube\\.com/watch\\?v=[\\w-]+"),
-            Regex("^https?://(www\\.)?youtu\\.be/[\\w-]+"),
-            Regex("^https?://(www\\.)?youtube\\.com/embed/[\\w-]+")
-        )
-        return patterns.any { it.matches(url) }
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) return false
+
+        val lower = trimmed.lowercase()
+        return lower.contains("youtube.com/watch") ||
+                lower.contains("youtu.be/") ||
+                lower.contains("youtube.com/embed")
     }
 
     companion object {

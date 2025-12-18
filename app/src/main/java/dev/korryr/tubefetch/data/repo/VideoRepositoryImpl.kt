@@ -1,301 +1,265 @@
 package dev.korryr.tubefetch.data.repo
 
-import android.content.Context
-import android.net.Uri
-import android.os.Build
-import android.os.Environment
-import androidx.annotation.RequiresApi
-import dev.korryr.tubefetch.data.local.dao.DownloadDao
-import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
-import dev.korryr.tubefetch.data.remote.YouTubeWebServiceImpl
+import android.util.Log
+import dev.korryr.tubefetch.BuildConfig
+import dev.korryr.tubefetch.data.remote.DownloadUrlResponse
+import dev.korryr.tubefetch.data.remote.VideoInfoResponse
+import dev.korryr.tubefetch.data.remote.YouTubeWebService
 import dev.korryr.tubefetch.domain.model.ApiResult
-import dev.korryr.tubefetch.domain.model.DownloadFormat
-import dev.korryr.tubefetch.domain.model.DownloadItem
-import dev.korryr.tubefetch.domain.model.DownloadRequest
-import dev.korryr.tubefetch.domain.model.DownloadStatus
 import dev.korryr.tubefetch.domain.model.VideoInfo
 import dev.korryr.tubefetch.domain.model.VideoQuality
 import dev.korryr.tubefetch.domain.repository.VideoRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.File
-import java.util.UUID
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class VideoRepositoryImpl @Inject constructor(
-    private val youTubeWebService: YouTubeWebServiceImpl, // ADD THIS
-    private val downloadDao: DownloadDao,
-    private val context: Context,
-    private val fileStorageManager: FileStorageManager
+    private val service: YouTubeWebService
 ) : VideoRepository {
+//    private val service: YouTubeWebService by lazy {
+//        val logging = HttpLoggingInterceptor().apply {
+//            level = HttpLoggingInterceptor.Level.BODY
+//        }
+//
+//        val client = OkHttpClient.Builder()
+//            .addInterceptor(logging)
+//            .addInterceptor { chain ->
+//                val request = chain.request().newBuilder()
+//                    .addHeader("X-RapidAPI-Key", BuildConfig.YOUTUBE_API_KEY)
+//                    .addHeader("X-RapidAPI-Host", BuildConfig.YOUTUBE_HOST)
+//                    .build()
+//                chain.proceed(request)
+//            }
+//            .build()
+//
+//        Retrofit.Builder()
+//            .baseUrl(YouTubeWebService.BASE_URL)
+//            .addConverterFactory(GsonConverterFactory.create())
+//            .client(client)
+//            .build()
+//            .create(YouTubeWebService::class.java)
+//    }
 
-    override suspend fun analyzeVideo(url: String): ApiResult<VideoInfo> {
-        return try {
-            // Use the Web API service instead
-            youTubeWebService.getVideoInfo(url)
-        } catch (e: Exception) {
-            ApiResult.Error("Network error: ${e.message}", e)
-        }
-    }
+    override suspend fun getVideoInfo(url: String): ApiResult<VideoInfo> = withContext(Dispatchers.IO) {
+        val videoId = extractVideoId(url)
+            ?: return@withContext ApiResult.Error("Invalid YouTube URL")
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    override suspend fun downloadVideo(request: DownloadRequest): ApiResult<Unit> {
-        return try {
-            // Create download directory
-            val downloadDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "TubeFetch"
-            ).apply { mkdirs() }
+        // Debug logging
+        Log.d("YouTubeWebService", "Fetching video info for ID: $videoId")
+        Log.d("YouTubeWebService", "API Base URL: ${BuildConfig.YOUTUBE_BASE_URL}")
+        Log.d("YouTubeWebService", "API Key: ${BuildConfig.YOUTUBE_API_KEY.take(10)}...")
 
-            // Create download item
-            val downloadItem = DownloadItem(
-                id = UUID.randomUUID().toString(),
-                title = request.title,
-                duration = "",
-                thumbnail = "",
-                status = DownloadStatus.DOWNLOADING,
-                quality = request.quality,
-                format = request.format,
-                url = request.url,
-                fileName = request.fileName
+        try {
+            val response = service.getVideoDetails(
+                videoId = videoId,
+                urlAccess = "normal",
+                videos = "auto",
+                audios = "auto"
             )
 
-            // Save to database
-            downloadDao.insertDownload(downloadItem.toEntity())
-
-            // For Web API, we need to handle download differently
-            // Since Web API returns a download URL, we need to download the file ourselves
-            val downloadResult = downloadWithWebApi(request, downloadDir)
-
-            when (downloadResult) {
-                is ApiResult.Success -> {
-                    // Move file to MediaStore and get URI
-                    val fileUri = fileStorageManager.saveFileToMediaStore(
-                        downloadedFile = downloadResult.data,
-                        fileName = request.fileName,
-                        format = request.format
-                    )
-
-                    // Update download item with completion
-                    val completedItem = downloadItem.copy(
-                        status = DownloadStatus.COMPLETED,
-                        progress = 1.0f,
-                        fileSize = formatFileSize(downloadResult.data.length()),
-                        downloadPath = downloadResult.data.absolutePath,
-                        fileUri = fileUri?.toString() ?: ""
-                    )
-
-                    downloadDao.updateDownload(completedItem.toEntity())
-                    ApiResult.Success(Unit)
-                }
-                is ApiResult.Error -> {
-                    // Update with error
-                    val failedItem = downloadItem.copy(
-                        status = DownloadStatus.FAILED
-                    )
-                    downloadDao.updateDownload(failedItem.toEntity())
-                    ApiResult.Error("Download failed: ${downloadResult.message}", downloadResult.exception)
-                }
-                is ApiResult.Loading -> {
-                    ApiResult.Error("Download still in progress")
-                }
+            if (response.errorId != "Success") {
+                return@withContext ApiResult.Error("API error: ${response.errorId}")
             }
+
+            ApiResult.Success(response.toVideoInfo())
+        } catch (e: retrofit2.HttpException) {
+            ApiResult.Error("HTTP ${e.code()}: ${e.message()}")
         } catch (e: Exception) {
-            ApiResult.Error("Download error: ${e.message}", e)
+            ApiResult.Error("Failed to get video info: ${e.message}")
         }
     }
 
+    suspend fun getDownloadUrl(
+        url: String,
+        format: String,
+        quality: VideoQuality?
+    ): ApiResult<DownloadUrlResponse> = withContext(Dispatchers.IO) {
+        val videoId = extractVideoId(url)
+            ?: return@withContext ApiResult.Error("Invalid YouTube URL")
 
-    private suspend fun downloadWithWebApi(
-        request: DownloadRequest,
-        outputDir: File
-    ): ApiResult<File> {
-        return try {
-            // Step 1: Get download URL from Web API
-            val downloadUrlResult = youTubeWebService.getDownloadUrl(
-                url = request.url,
-                format = request.format.extension
+        try {
+            val response = service.getVideoDetails(
+                videoId = videoId,
+                urlAccess = "normal",
+                videos = "auto",
+                audios = "auto"
             )
 
-            when (downloadUrlResult) {
-                is ApiResult.Success -> {
-                    // Step 2: Download the file from the URL
-                    val downloadedFile = downloadFileFromUrl(
-                        downloadUrl = downloadUrlResult.data.url,
-                        outputDir = outputDir,
-                        fileName = request.fileName
+            if (response.errorId != "Success") {
+                return@withContext ApiResult.Error("API error: ${response.errorId}")
+            }
+
+            val isAudioFormat = when (format.lowercase()) {
+                "mp3", "m4a", "wav" -> true
+                else -> false
+            }
+
+            val downloadStream = if (isAudioFormat) {
+                val audioItems = response.audios?.items.orEmpty()
+                chooseAudioStream(audioItems, format)
+            } else {
+                val videoItems = response.videos?.items.orEmpty()
+                chooseVideoStream(videoItems, format, quality)
+            }
+
+            if (downloadStream == null) {
+                return@withContext ApiResult.Error("No matching stream found for format $format")
+            }
+
+            val (urlToDownload, quality, extension) = when (downloadStream) {
+                is VideoInfoResponse.VideoItem -> {
+                    val streamUrl = downloadStream.url.orEmpty()
+                    if (streamUrl.isBlank()) {
+                        return@withContext ApiResult.Error("No URL available for selected video stream")
+                    }
+                    Triple(
+                        streamUrl,
+                        downloadStream.quality ?: "unknown",
+                        downloadStream.extension ?: format
                     )
-
-                    if (downloadedFile != null && downloadedFile.exists()) {
-                        ApiResult.Success(downloadedFile)
-                    } else {
-                        ApiResult.Error("Failed to download file from URL")
+                }
+                is VideoInfoResponse.AudioItem -> {
+                    val streamUrl = downloadStream.url.orEmpty()
+                    if (streamUrl.isBlank()) {
+                        return@withContext ApiResult.Error("No URL available for selected audio stream")
                     }
+                    Triple(
+                        streamUrl,
+                        "audio",
+                        downloadStream.extension ?: format
+                    )
                 }
-                is ApiResult.Error -> {
-                    ApiResult.Error("Failed to get download URL: ${downloadUrlResult.message}")
-                }
-                is ApiResult.Loading -> {
-                    ApiResult.Error("Still getting download URL")
+                else -> {
+                    return@withContext ApiResult.Error("Unsupported stream type for format $format")
                 }
             }
+
+            ApiResult.Success(
+                DownloadUrlResponse(
+                    url = urlToDownload,
+                    title = response.title ?: "YouTube Video",
+                    format = extension,
+                    quality = quality
+                )
+            )
+        } catch (e: retrofit2.HttpException) {
+            ApiResult.Error("HTTP ${e.code()}: ${e.message()}")
         } catch (e: Exception) {
-            ApiResult.Error("Web API download failed: ${e.message}")
+            ApiResult.Error("Failed to get download URL: ${e.message}")
         }
     }
 
+    private fun extractVideoId(url: String): String? {
+        val patterns = listOf(
+            Regex("v=([\\w-]+)"),
+            Regex("youtu\\.be/([\\w-]+)"),
+            Regex("embed/([\\w-]+)")
+        )
 
-    private suspend fun downloadFileFromUrl(
-        downloadUrl: String,
-        outputDir: File,
-        fileName: String
-    ): File? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val outputFile = File(outputDir, fileName)
-
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(30, TimeUnit.SECONDS)
-                    .build()
-
-                val request = Request.Builder()
-                    .url(downloadUrl)
-                    .build()
-
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        return@withContext null
-                    }
-
-                    response.body?.byteStream()?.use { inputStream ->
-                        outputFile.outputStream().use { outputStream ->
-                            inputStream.copyTo(outputStream)
-                        }
-                    }
-                }
-
-                outputFile
-            } catch (e: Exception) {
-                null
+        for (pattern in patterns) {
+            val match = pattern.find(url)
+            if (match != null && match.groupValues.size > 1) {
+                return match.groupValues[1]
             }
         }
+
+        return null
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun getDownloadHistory(): Flow<List<DownloadItem>> {
-        return downloadDao.getDownloads().map { entities ->
-            entities.map { it.toDownloadItem() }
-        }
-    }
+    private fun VideoInfoResponse.toVideoInfo(): dev.korryr.tubefetch.domain.model.VideoInfo {
+        val durationText = formatDuration(lengthSeconds)
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    override suspend fun getDownloadById(id: String): DownloadItem? {
-        return downloadDao.getDownloadById(id)?.toDownloadItem()
-    }
+        val thumbnailUrl = thumbnails
+            ?.maxByOrNull { it.width ?: 0 }
+            ?.url
+            ?: ""
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    override suspend fun updateDownload(download: DownloadItem) {
-        downloadDao.updateDownload(download.toEntity())
-    }
-
-    override suspend fun deleteDownload(id: String) {
-        val entity = downloadDao.getDownloadById(id)
-        entity?.let {
-            // Delete actual file
-            deleteFileFromStorage(it.fileUri)
-            downloadDao.deleteDownload(it)
-        }
-    }
-
-    override suspend fun clearCompletedDownloads() {
-        // Get completed downloads first to delete their files
-        val completedDownloads = downloadDao.getDownloads()
-            .first()
-            .filter { it.status == "COMPLETED" }
-
-        completedDownloads.forEach { entity ->
-            deleteFileFromStorage(entity.fileUri)
-        }
-
-        downloadDao.clearCompletedDownloads()
-    }
-
-    private fun formatFileSize(size: Long): String {
-        return when {
-            size >= 1024 * 1024 * 1024 -> String.format("%.1f GB", size / (1024.0 * 1024.0 * 1024.0))
-            size >= 1024 * 1024 -> String.format("%.1f MB", size / (1024.0 * 1024.0))
-            size >= 1024 -> String.format("%.1f KB", size / 1024.0)
-            else -> "$size B"
-        }
-    }
-
-    private suspend fun deleteFileFromStorage(fileUri: String) {
-        if (fileUri.isNotEmpty()) {
-            try {
-                val uri = Uri.parse(fileUri)
-                context.contentResolver.delete(uri, null, null)
-            } catch (e: Exception) {
-                // If MediaStore deletion fails, try direct file deletion
-                try {
-                    File(fileUri).delete()
-                } catch (fileE: Exception) {
-                    // Log but don't fail
-                    fileE.printStackTrace()
+        val qualities = videos?.items
+            ?.mapNotNull { it.quality }
+            ?.mapNotNull { qualityString ->
+                when (qualityString) {
+                    "2160p", "4K" -> dev.korryr.tubefetch.domain.model.VideoQuality.UHD4K
+                    "1440p" -> dev.korryr.tubefetch.domain.model.VideoQuality.QHD1440
+                    "1080p" -> dev.korryr.tubefetch.domain.model.VideoQuality.HD1080
+                    "720p" -> dev.korryr.tubefetch.domain.model.VideoQuality.HD720
+                    "480p" -> dev.korryr.tubefetch.domain.model.VideoQuality.SD480
+                    "360p" -> dev.korryr.tubefetch.domain.model.VideoQuality.SD360
+                    else -> null
                 }
             }
-        }
-    }
+            ?.distinct()
+            ?: emptyList()
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun DownloadItem.toEntity(): dev.korryr.tubefetch.data.local.entity.DownloadEntity {
-        return dev.korryr.tubefetch.data.local.entity.DownloadEntity(
-            id = id,
-            title = title,
-            duration = duration,
-            thumbnail = thumbnail,
-            status = status.name,
-            progress = progress,
-            fileSize = fileSize,
-            downloadSpeed = downloadSpeed,
-            quality = quality.name,
-            format = format.name,
-            url = url,
-            channelName = channelName,
-            viewCount = viewCount,
-            uploadDate = uploadDate,
-            downloadPath = downloadPath,
-            fileUri = fileUri,
-            createdAt = createdAt
+        return dev.korryr.tubefetch.domain.model.VideoInfo(
+            title = title ?: "",
+            duration = durationText,
+            thumbnail = thumbnailUrl,
+            channelName = channel?.name ?: "",
+            viewCount = viewCount?.toString() ?: "0",
+            uploadDate = publishedTimeText ?: "",
+            description = description ?: "",
+            availableQualities = qualities
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun dev.korryr.tubefetch.data.local.entity.DownloadEntity.toDownloadItem(): DownloadItem {
-        return DownloadItem(
-            id = id,
-            title = title,
-            duration = duration,
-            thumbnail = thumbnail,
-            status = DownloadStatus.valueOf(status),
-            progress = progress,
-            fileSize = fileSize,
-            downloadSpeed = downloadSpeed,
-            quality = VideoQuality.values().find { it.name == quality } ?: VideoQuality.AUTO,
-            format = DownloadFormat.values().find { it.name == format } ?: DownloadFormat.MP4,
-            url = url,
-            channelName = channelName,
-            viewCount = viewCount,
-            uploadDate = uploadDate,
-            downloadPath = downloadPath,
-            fileUri = fileUri,
-            createdAt = createdAt
-        )
+    private fun formatDuration(lengthSeconds: Int?): String {
+        if (lengthSeconds == null || lengthSeconds <= 0) return ""
+
+        val hours = lengthSeconds / 3600
+        val minutes = (lengthSeconds % 3600) / 60
+        val seconds = lengthSeconds % 60
+
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%d:%02d", minutes, seconds)
+        }
+    }
+
+    private fun chooseVideoStream(
+        items: List<VideoInfoResponse.VideoItem>,
+        desiredExtension: String,
+        desiredQuality: VideoQuality?
+    ): VideoInfoResponse.VideoItem? {
+        if (items.isEmpty()) return null
+
+        val normalizedExt = desiredExtension.lowercase()
+        val extensionFiltered = items.filter { it.extension?.equals(normalizedExt, ignoreCase = true) == true }
+        val candidates = if (extensionFiltered.isNotEmpty()) extensionFiltered else items
+
+        val qualitySpecific = when (desiredQuality) {
+            null, VideoQuality.AUTO -> emptyList()
+            VideoQuality.SD360 -> filterByQuality(candidates, listOf("360p"))
+            VideoQuality.SD480 -> filterByQuality(candidates, listOf("480p"))
+            VideoQuality.HD720 -> filterByQuality(candidates, listOf("720p"))
+            VideoQuality.HD1080 -> filterByQuality(candidates, listOf("1080p"))
+            VideoQuality.QHD1440 -> filterByQuality(candidates, listOf("1440p"))
+            VideoQuality.UHD2160, VideoQuality.UHD4K -> filterByQuality(candidates, listOf("2160p", "4K"))
+        }
+
+        val listToPickFrom = if (qualitySpecific.isNotEmpty()) qualitySpecific else candidates
+
+        // Prefer the highest resolution available among the remaining candidates
+        return listToPickFrom.maxByOrNull { it.height ?: 0 }
+    }
+
+    private fun filterByQuality(
+        items: List<VideoInfoResponse.VideoItem>,
+        labels: List<String>
+    ): List<VideoInfoResponse.VideoItem> {
+        if (labels.isEmpty()) return emptyList()
+        val normalized = labels.map { it.lowercase() }
+        return items.filter { item ->
+            val q = item.quality?.lowercase()
+            q != null && normalized.contains(q)
+        }
+    }
+
+    private fun chooseAudioStream(
+        items: List<VideoInfoResponse.AudioItem>,
+        @Suppress("UNUSED_PARAMETER") desiredExtension: String
+    ): VideoInfoResponse.AudioItem? {
+        // RapidAPI typically returns M4A for audio; prefer any available stream
+        return items.firstOrNull()
     }
 }

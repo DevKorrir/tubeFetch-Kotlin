@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import dev.korryr.tubefetch.domain.model.VideoInfo
 
 @Composable
@@ -38,7 +40,7 @@ fun VideoPreviewCard(
             modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Thumbnail placeholder
+            // Thumbnail preview
             Box(
                 modifier = Modifier
                     .size(80.dp, 60.dp)
@@ -46,10 +48,17 @@ fun VideoPreviewCard(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
+                AsyncImage(
+                    model = videoInfo.thumbnail,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
+
                 Icon(
                     imageVector = Icons.Rounded.PlayArrow,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
                     modifier = Modifier.size(24.dp)
                 )
             }
