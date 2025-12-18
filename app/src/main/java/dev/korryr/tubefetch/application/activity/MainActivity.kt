@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val navController = androidx.navigation.compose.rememberNavController()
             TubeFetchTheme (
-                darkTheme = true
+                darkTheme = false
             ) {
 
                 MainNav(

@@ -4,11 +4,15 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -18,7 +22,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -29,9 +33,9 @@ import dev.korryr.tubefetch.domain.model.DownloadFormat
 import dev.korryr.tubefetch.domain.model.DownloadStats
 import dev.korryr.tubefetch.domain.model.VideoQuality
 import dev.korryr.tubefetch.navigation.Routes
-import dev.korryr.tubefetch.ui.features.home.uiElements.EnhancedHomeHeader
 import dev.korryr.tubefetch.ui.features.home.uiElements.ErrorDialog
 import dev.korryr.tubefetch.ui.features.home.uiElements.FormatSelectionSheet
+import dev.korryr.tubefetch.ui.features.home.uiElements.HomeHeader
 import dev.korryr.tubefetch.ui.features.home.uiElements.QualitySelectionSheet
 import dev.korryr.tubefetch.ui.features.home.uiElements.QuickActionsGrid
 import dev.korryr.tubefetch.ui.features.home.uiElements.SmartUrlInputSection
@@ -94,14 +98,19 @@ fun HomeScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Enhanced Header with Stats (simplified - no stats or show placeholder)
+            // Enhanced Header with Stats
             item {
-                EnhancedHomeHeader(
+                HomeHeader(
                     stats = DownloadStats(
                         totalDownloads = 0,
                         completedDownloads = 0,
@@ -109,7 +118,10 @@ fun HomeScreen(
                         activeDownloads = 0
                     ),
                     hasPermission = permissionState.hasStoragePermission,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 16.dp)
                 )
             }
 
@@ -129,22 +141,20 @@ fun HomeScreen(
                     videoInfo = uiState.videoInfo,
                     isAnalyzing = uiState.isAnalyzing,
                     hasPermission = permissionState.hasStoragePermission,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp)
                 )
             }
 
-            // Quick Actions Grid (simplified)
+            // Quick Actions Grid
             item {
                 QuickActionsGrid(
                     onClearDownloads = {
-                        // Navigate to downloads screen
                         navController.navigate(Routes.Downloads.route)
                     },
                     onClearCompleted = {
-                        // This is now in Downloads screen
                         navController.navigate(Routes.Downloads.route)
                     },
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp),
                     onNavigateToDownloads = {
                         navController.navigate(Routes.Downloads.route)
                     }
@@ -152,18 +162,34 @@ fun HomeScreen(
             }
         }
 
-        // Loading Overlay
+        // Loading Overlay with blur effect
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f)),
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Card(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(RoundedCornerShape(24.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(48.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 4.dp
+                        )
+                    }
+                }
             }
         }
 
