@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import dev.korryr.tubefetch.ui.features.history.view.DownloadsScreen
+import dev.korryr.tubefetch.ui.features.settings.view.SettingsScreen
 
 @Composable
 fun MainNav(
@@ -33,6 +34,7 @@ fun MainNav(
             }
 
             composable(route = Routes.Settings.route) {
+                SettingsScreen()
                 // SettingsScreen() - You'll create this later
             }
         }

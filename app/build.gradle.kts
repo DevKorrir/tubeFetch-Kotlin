@@ -142,6 +142,7 @@ dependencies {
 
     // Image loading for Compose (video thumbnails)
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // YouTube DL for Android (Java wrapper)
 //    implementation("com.github.yausername.youtubedl-android:library:0.13.0")
