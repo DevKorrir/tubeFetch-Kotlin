@@ -12,8 +12,10 @@ import dev.korryr.tubefetch.data.local.db.AppDatabase
 import dev.korryr.tubefetch.data.local.filestoreManager.FileStorageManager
 import dev.korryr.tubefetch.data.remote.YouTubeWebService
 import dev.korryr.tubefetch.data.remote.YouTubeWebServiceImpl
+import dev.korryr.tubefetch.data.settings.SettingsRepositoryImpl
 import dev.korryr.tubefetch.data.repo.VideoRepositoryImpl
 import dev.korryr.tubefetch.domain.repository.VideoRepository
+import dev.korryr.tubefetch.domain.repository.SettingsRepository
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
 import dev.korryr.tubefetch.utils.PermissionManager
 import okhttp3.OkHttpClient
@@ -44,6 +46,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideDownloadDao(database: AppDatabase) = database.downloadDao()
+
+    @Provides
+    @Singleton
     fun provideFileStorageManager(@ApplicationContext context: Context): FileStorageManager {
         return FileStorageManager(context)
     }
@@ -53,6 +59,13 @@ object AppModule {
     fun providePermissionManager(@ApplicationContext context: Context): PermissionManager {
         return PermissionManager(context)
     }
+
+    // Settings Repository (DataStore)
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(
+        @ApplicationContext context: Context
+    ): SettingsRepository = SettingsRepositoryImpl(context)
 
     @Provides
     @Singleton
@@ -97,16 +110,18 @@ object AppModule {
     @Provides
     @Singleton
     fun provideVideoRepository(
-        youTubeWebService: YouTubeWebServiceImpl, // <--- interface (not impl)
-        database: AppDatabase,
+        youTubeWebService: YouTubeWebServiceImpl,
+        downloadDao: dev.korryr.tubefetch.data.local.dao.DownloadDao,
         fileStorageManager: FileStorageManager,
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        workManager: WorkManager
     ): VideoRepository {
         return VideoRepositoryImpl(
             youTubeWebService = youTubeWebService,
-            downloadDao = database.downloadDao(),
+            downloadDao = downloadDao,
             fileStorageManager = fileStorageManager,
-            context = context
+            context = context,
+            workManager = workManager
         )
     }
 

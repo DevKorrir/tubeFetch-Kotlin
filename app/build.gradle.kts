@@ -140,6 +140,10 @@ dependencies {
     // Lifecycle ViewModel for Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 
+    // Image loading for Compose (video thumbnails)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     // YouTube DL for Android (Java wrapper)
 //    implementation("com.github.yausername.youtubedl-android:library:0.13.0")
 //    implementation("com.github.yausername.youtubedl-android:ffmpeg:0.13.0")

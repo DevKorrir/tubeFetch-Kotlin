@@ -13,9 +13,5 @@ interface YouTubeWebService {
         @Query("audios") audios: String = "auto"
     ): VideoInfoResponse
 
-//    companion object {
-//        const val BASE_URL = BuildConfig.YOUTUBE_BASE_URL
-//
-//
-//    }
+
 }
