@@ -44,6 +44,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideDownloadDao(database: AppDatabase) = database.downloadDao()
+
+    @Provides
+    @Singleton
     fun provideFileStorageManager(@ApplicationContext context: Context): FileStorageManager {
         return FileStorageManager(context)
     }
@@ -97,15 +101,15 @@ object AppModule {
     @Provides
     @Singleton
     fun provideVideoRepository(
-        youTubeWebService: YouTubeWebServiceImpl, // <--- interface (not impl)
-        database: AppDatabase,
+        youTubeWebService: YouTubeWebServiceImpl,
+        downloadDao: dev.korryr.tubefetch.data.local.dao.DownloadDao,
         fileStorageManager: FileStorageManager,
         @ApplicationContext context: Context,
         workManager: WorkManager
     ): VideoRepository {
         return VideoRepositoryImpl(
             youTubeWebService = youTubeWebService,
-            downloadDao = database.downloadDao(),
+            downloadDao = downloadDao,
             fileStorageManager = fileStorageManager,
             context = context,
             workManager = workManager

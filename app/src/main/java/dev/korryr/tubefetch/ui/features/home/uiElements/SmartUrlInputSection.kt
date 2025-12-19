@@ -237,14 +237,14 @@ fun SmartUrlInputSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Quality Selection - Cute Card
-                ElevatedCard(
+                Card(
                     onClick = onQualityClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
                     ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                    //elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(
                         modifier = Modifier
@@ -283,14 +283,14 @@ fun SmartUrlInputSection(
                 }
 
                 // Format Selection - Cute Card
-                ElevatedCard(
+                Card(
                     onClick = onFormatClick,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
                     ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                    //elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
                         modifier = Modifier

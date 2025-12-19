@@ -159,6 +159,7 @@ fun DownloadItemCard(
             // Progress Section
             AnimatedVisibility(
                 visible = download.status in listOf(
+                    DownloadStatus.QUEUED,
                     DownloadStatus.DOWNLOADING,
                     DownloadStatus.PROCESSING,
                     DownloadStatus.PAUSED
@@ -194,6 +195,7 @@ fun DownloadItemCard(
                         ) {
                             Text(
                                 text = when (download.status) {
+                                    DownloadStatus.QUEUED -> "⏳ Queued..."
                                     DownloadStatus.PROCESSING -> "Processing..."
                                     DownloadStatus.PAUSED -> "⏸️ Paused"
                                     else -> "${(download.progress * 100).toInt()}%"

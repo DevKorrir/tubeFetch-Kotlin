@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Environment
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -44,11 +45,15 @@ class DownloadWorker @AssistedInject constructor(
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     override suspend fun doWork(): Result {
+        Log.d("DownloadWorker", "Worker started - doWork() called")
+        
         val url = inputData.getString(KEY_URL) ?: return Result.failure()
         val title = inputData.getString(KEY_TITLE) ?: return Result.failure()
         val fileName = inputData.getString(KEY_FILE_NAME) ?: return Result.failure()
         val qualityName = inputData.getString(KEY_QUALITY) ?: return Result.failure()
         val formatName = inputData.getString(KEY_FORMAT) ?: return Result.failure()
+
+        Log.d("DownloadWorker", "Download params - URL: $url, Title: $title, Quality: $qualityName, Format: $formatName")
 
         val quality = try {
             VideoQuality.valueOf(qualityName)
@@ -67,9 +72,11 @@ class DownloadWorker @AssistedInject constructor(
 
         return try {
             // Update status to DOWNLOADING
+            Log.d("DownloadWorker", "Updating status to DOWNLOADING")
             updateDownloadStatus(title, DownloadStatus.DOWNLOADING, 0f)
             
             // Get download URL from API
+            Log.d("DownloadWorker", "Fetching download URL from API")
             val downloadUrlResult = youTubeWebService.getDownloadUrl(url, format.extension, quality)
             
             when (downloadUrlResult) {
@@ -104,6 +111,7 @@ class DownloadWorker @AssistedInject constructor(
                 else -> Result.failure()
             }
         } catch (e: Exception) {
+            Log.e("DownloadWorker", "Download failed with exception", e)
             updateDownloadStatus(title, DownloadStatus.FAILED, 0f)
             Result.failure()
         }

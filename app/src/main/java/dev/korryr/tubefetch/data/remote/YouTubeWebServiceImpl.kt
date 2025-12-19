@@ -148,9 +148,9 @@ class YouTubeWebServiceImpl @Inject constructor(
 
     private fun extractVideoId(url: String): String? {
         val patterns = listOf(
-            Regex(""\"v=([\w-]+)""\"),
-            Regex(""\"youtu\.be/([\w-]+)""\"),
-            Regex(""\"embed/([\w-]+)""\")
+            Regex("""v=([\w-]+)"""),
+            Regex("""youtu\.be/([\w-]+)"""),
+            Regex("""embed/([\w-]+)""")
         )
 
 
