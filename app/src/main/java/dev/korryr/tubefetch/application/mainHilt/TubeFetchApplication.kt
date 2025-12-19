@@ -1,4 +1,4 @@
-package dev.korryr.tubefetch
+package dev.korryr.tubefetch.application.mainHilt
 
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
@@ -12,12 +12,12 @@ class TubeFetchApplication : Application(), Configuration.Provider {
     
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
-    
+
     override fun onCreate() {
         super.onCreate()
-        DownloadWorker.createNotificationChannel(this)
+        DownloadWorker.Companion.createNotificationChannel(this)
     }
-    
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)

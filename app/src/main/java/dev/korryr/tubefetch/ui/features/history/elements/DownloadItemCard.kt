@@ -284,7 +284,7 @@ fun DownloadItemCard(
                     }
                     if (download.fileSize.isNotEmpty()) {
                         Text(
-                            text = "📦 ${download.fileSize}",
+                            text = download.fileSize,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -327,7 +327,7 @@ fun DownloadItemCard(
 
                 DownloadStatus.FAILED -> {
                     DropdownMenuItem(
-                        text = { Text("🔄 Retry Download") },
+                        text = { Text("Retry Download") },
                         onClick = {
                             onRetry(download.id)
                             showMenu = false
@@ -342,7 +342,7 @@ fun DownloadItemCard(
             }
 
             DropdownMenuItem(
-                text = { Text("🗑️ Delete", color = MaterialTheme.colorScheme.error) },
+                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 onClick = {
                     onDelete(download.id)
                     showMenu = false

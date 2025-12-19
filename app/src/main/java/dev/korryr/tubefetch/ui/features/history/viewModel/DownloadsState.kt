@@ -118,10 +118,10 @@ class DownloadsViewModel @Inject constructor(
                 it.status == DownloadStatus.FAILED 
             }
             DownloadFilter.AUDIO -> currentDownloads.filter {
-                it.format in listOf(DownloadFormat.MP3, DownloadFormat.M4A, DownloadFormat.WAV) // Adjust based on your DownloadFormat
+                it.format in listOf(DownloadFormat.MP3, DownloadFormat.M4A, DownloadFormat.WAV)
             }
             DownloadFilter.VIDEO -> currentDownloads.filter {
-                it.format in listOf(DownloadFormat.MP4, DownloadFormat.WEBM) // Adjust based on your DownloadFormat
+                it.format in listOf(DownloadFormat.MP4, DownloadFormat.WEBM)
             }
         }
     }

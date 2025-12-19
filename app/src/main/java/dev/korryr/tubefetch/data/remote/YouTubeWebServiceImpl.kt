@@ -13,29 +13,6 @@ import javax.inject.Inject
 class YouTubeWebServiceImpl @Inject constructor(
     private val service: YouTubeWebService
 ) {
-//    private val service: YouTubeWebService by lazy {
-//        val logging = HttpLoggingInterceptor().apply {
-//            level = HttpLoggingInterceptor.Level.BODY
-//        }
-//
-//        val client = OkHttpClient.Builder()
-//            .addInterceptor(logging)
-//            .addInterceptor { chain ->
-//                val request = chain.request().newBuilder()
-//                    .addHeader("X-RapidAPI-Key", BuildConfig.YOUTUBE_API_KEY)
-//                    .addHeader("X-RapidAPI-Host", BuildConfig.YOUTUBE_HOST)
-//                    .build()
-//                chain.proceed(request)
-//            }
-//            .build()
-//
-//        Retrofit.Builder()
-//            .baseUrl(YouTubeWebService.BASE_URL)
-//            .addConverterFactory(GsonConverterFactory.create())
-//            .client(client)
-//            .build()
-//            .create(YouTubeWebService::class.java)
-//    }
 
     suspend fun getVideoInfo(url: String): ApiResult<VideoInfo> = withContext(Dispatchers.IO) {
         val videoId = extractVideoId(url)
