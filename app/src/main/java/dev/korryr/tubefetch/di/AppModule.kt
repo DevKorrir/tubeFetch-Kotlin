@@ -18,6 +18,8 @@ import dev.korryr.tubefetch.domain.repository.VideoRepository
 import dev.korryr.tubefetch.domain.repository.SettingsRepository
 import dev.korryr.tubefetch.domain.tracker.DownloadTracker
 import dev.korryr.tubefetch.utils.PermissionManager
+import dev.korryr.tubefetch.core.connectivity.ConnectivityObserver
+import dev.korryr.tubefetch.core.connectivity.ConnectivityObserverImpl
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -66,6 +68,13 @@ object AppModule {
     fun provideSettingsRepository(
         @ApplicationContext context: Context
     ): SettingsRepository = SettingsRepositoryImpl(context)
+
+    // Connectivity Observer
+    @Provides
+    @Singleton
+    fun provideConnectivityObserver(
+        @ApplicationContext context: Context
+    ): ConnectivityObserver = ConnectivityObserverImpl(context)
 
     @Provides
     @Singleton
