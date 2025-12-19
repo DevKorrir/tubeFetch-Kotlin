@@ -192,8 +192,25 @@ class HomeViewModel @Inject constructor(
     private fun generateFileName(): String {
         val title = _state.value.videoInfo?.title ?: "video"
         val cleanTitle = title.replace("[^a-zA-Z0-9\\-_]".toRegex(), "_")
-        val extension = _state.value.selectedFormat.extension
-        return "$cleanTitle.$extension"
+
+        val format = _state.value.selectedFormat
+        val quality = _state.value.selectedQuality
+
+        val isAudioFormat = format in listOf(
+            DownloadFormat.MP3,
+            DownloadFormat.M4A,
+            DownloadFormat.WAV
+        )
+
+        val qualitySuffix = when {
+            isAudioFormat -> "" // audio-only: no video resolution concept
+            quality == VideoQuality.AUTO -> "" // auto/best available, no explicit tag
+            else -> "_" + quality.displayName.replace("[^a-zA-Z0-9]".toRegex(), "")
+        }
+
+        val baseName = cleanTitle + qualitySuffix
+        val extension = format.extension
+        return "$baseName.$extension"
     }
 
     private fun isValidYouTubeUrl(url: String): Boolean {

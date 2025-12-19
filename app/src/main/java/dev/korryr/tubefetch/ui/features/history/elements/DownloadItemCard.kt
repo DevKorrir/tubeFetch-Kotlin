@@ -1,5 +1,8 @@
 package dev.korryr.tubefetch.ui.features.history.elements
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -15,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +37,7 @@ fun DownloadItemCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var isPressed by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
@@ -301,7 +306,7 @@ fun DownloadItemCard(
             when (download.status) {
                 DownloadStatus.DOWNLOADING -> {
                     DropdownMenuItem(
-                        text = { Text("⏸️ Pause Download") },
+                        text = { Text("Pause Download") },
                         onClick = {
                             onPause(download.id)
                             showMenu = false
@@ -314,7 +319,7 @@ fun DownloadItemCard(
 
                 DownloadStatus.PAUSED -> {
                     DropdownMenuItem(
-                        text = { Text("▶️ Resume Download") },
+                        text = { Text("Resume Download") },
                         onClick = {
                             onResume(download.id)
                             showMenu = false
@@ -339,6 +344,36 @@ fun DownloadItemCard(
                 }
 
                 else -> {}
+            }
+
+            if (download.status == DownloadStatus.COMPLETED && download.fileUri.isNotEmpty()) {
+                DropdownMenuItem(
+                    text = { Text("Open file") },
+                    onClick = {
+                        val uri = Uri.parse(download.fileUri)
+                        val primaryIntent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, download.format.mimeType)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        try {
+                            context.startActivity(primaryIntent)
+                        } catch (e: ActivityNotFoundException) {
+                            try {
+                                val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    data = uri
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(fallbackIntent)
+                            } catch (_: Exception) {
+                                // No suitable app; ignore for now
+                            }
+                        }
+                        showMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.FolderOpen, contentDescription = null)
+                    }
+                )
             }
 
             DropdownMenuItem(
