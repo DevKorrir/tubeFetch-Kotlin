@@ -152,10 +152,10 @@ class DownloadWorker @AssistedInject constructor(
                     val inputStream = response.body?.byteStream()
                         ?: return@withContext ApiResult.Error("No response body")
                     
+                    var bytesCopied = 0L
                     inputStream.use { input ->
                         outputFile.outputStream().use { output ->
                             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                            var bytesCopied = 0L
                             var bytesRead: Int
                             
                             while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -171,6 +171,8 @@ class DownloadWorker @AssistedInject constructor(
                             }
                         }
                     }
+                    
+                    val fileSizeText = formatFileSize(bytesCopied)
                     
                     // Save to MediaStore
                     val fileUri = fileStorageManager.saveFileToMediaStore(
@@ -190,7 +192,7 @@ class DownloadWorker @AssistedInject constructor(
                         val updatedItem = it.copy(
                             status = DownloadStatus.COMPLETED,
                             progress = 1.0f,
-                            fileSize = formatFileSize(outputFile.length()),
+                            fileSize = fileSizeText,
                             downloadPath = outputFile.absolutePath,
                             fileUri = fileUri?.toString() ?: ""
                         )
