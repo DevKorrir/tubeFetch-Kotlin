@@ -1,6 +1,8 @@
 package dev.korryr.tubefetch.data.local.worker
 
 import android.content.Context
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.Data
@@ -22,6 +24,7 @@ class DownloadWorker @AssistedInject constructor(
     private val okHttpClient: OkHttpClient
 ) : CoroutineWorker(context, params) {
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun doWork(): Result {
         val downloadId = inputData.getString(KEY_DOWNLOAD_ID) ?: return Result.failure()
         
