@@ -28,15 +28,17 @@ jobs:
       - name: Build APK
         run: ./gradlew assembleRelease
         env:
-          # Add your signing configs here if needed
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # UPDATED: v3 → v4
         with:
           name: app-release
           path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
