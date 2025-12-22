@@ -24,6 +24,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Create keys.properties
+        run: |
+          echo "YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}" > keys.properties
+          echo "YOUTUBE_BASE_URL=${{ secrets.YOUTUBE_BASE_URL }}" >> keys.properties
+          echo "YOUTUBE_HOST=${{ secrets.YOUTUBE_HOST }}" >> keys.properties
+        shell: bash
+
       - name: Setup Signing Keystore
         run: |
           mkdir -p app/signing
