@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
 
@@ -64,7 +65,8 @@ class VideoRepositoryImpl @Inject constructor(
                 quality = request.quality,
                 format = request.format,
                 url = request.url,
-                fileName = request.fileName
+                fileName = request.fileName,
+                createdAt = LocalDateTime.now()
             )
 
             // Save to database first

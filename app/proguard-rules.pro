@@ -12,10 +12,13 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
+# Keep the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep all classes in the data.remote package
+-keep class dev.korryr.tubefetch.data.remote.** { *; }

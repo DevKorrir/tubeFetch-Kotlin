@@ -1,8 +1,6 @@
 package dev.korryr.tubefetch.ui.features.home.viewModel
 
 import android.app.Activity
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -22,7 +20,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@RequiresApi(Build.VERSION_CODES.O)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val analyzeVideoUseCase: AnalyzeVideoUseCase,
@@ -165,7 +162,7 @@ class HomeViewModel @Inject constructor(
         _state.value = _state.value.copy(error = null)
     }
 
-    private fun checkPermissions() {
+    fun checkPermissions() {
         viewModelScope.launch {
             val hasPermission = permissionManager.hasStoragePermission()
             _permissionState.value = _permissionState.value.copy(hasStoragePermission = hasPermission)

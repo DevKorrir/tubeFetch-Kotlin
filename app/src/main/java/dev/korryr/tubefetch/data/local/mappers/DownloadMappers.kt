@@ -5,6 +5,7 @@ import dev.korryr.tubefetch.domain.model.DownloadFormat
 import dev.korryr.tubefetch.domain.model.DownloadItem
 import dev.korryr.tubefetch.domain.model.DownloadStatus
 import dev.korryr.tubefetch.domain.model.VideoQuality
+import java.time.LocalDateTime
 
 fun DownloadItem.toEntity(): DownloadEntity {
     return DownloadEntity(
@@ -23,7 +24,8 @@ fun DownloadItem.toEntity(): DownloadEntity {
         viewCount = viewCount,
         uploadDate = uploadDate,
         downloadPath = downloadPath,
-        fileUri = fileUri
+        fileUri = fileUri,
+        createdAt = LocalDateTime.now()
     )
 }
 

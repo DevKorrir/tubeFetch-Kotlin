@@ -44,7 +44,6 @@ import dev.korryr.tubefetch.ui.features.home.viewModel.HomeEvent
 import dev.korryr.tubefetch.ui.features.home.viewModel.HomeSideEffect
 import dev.korryr.tubefetch.ui.features.home.viewModel.HomeViewModel
 
-@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -86,7 +85,10 @@ fun HomeScreen(
                     viewModel.onEvent(HomeEvent.RequestStoragePermission(context))
                 }
             },
-            onDismiss = { /* Can't dismiss - permission is required */ }
+            onDismiss = { 
+                // Allow dismissal but keep checking permissions
+                viewModel.checkPermissions()
+            }
         )
     }
 

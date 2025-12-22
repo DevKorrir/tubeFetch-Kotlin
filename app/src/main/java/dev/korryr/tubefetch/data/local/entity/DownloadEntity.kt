@@ -1,12 +1,11 @@
 package dev.korryr.tubefetch.data.local.entity
 
-import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.room.*
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 
 @Entity(tableName = "downloads")
-data class DownloadEntity @RequiresApi(Build.VERSION_CODES.O) constructor(
+data class DownloadEntity(
     @PrimaryKey
     val id: String,
     val title: String,
@@ -24,5 +23,5 @@ data class DownloadEntity @RequiresApi(Build.VERSION_CODES.O) constructor(
     val uploadDate: String = "",
     val downloadPath: String = "",
     val fileUri: String = "",
-    val createdAt: LocalDateTime = LocalDateTime.now()
+    val createdAt: LocalDateTime
 )
