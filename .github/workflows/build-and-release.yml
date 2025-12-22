@@ -1,27 +1,24 @@
-name: Build and Release APK
+name: Build and Release Signed APK
 
 on:
   push:
     tags:
-      - 'v*'  # Trigger on version tags like v1.0.0
+      - 'v*'
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    # Add permissions at the job level
     permissions:
-      contents: write  # Required to create releases
-      actions: read
-      checks: read
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for proper tagging
+          fetch-depth: 0
 
       - name: Set up JDK
-        uses: actions/setup-java@v4  # Updated to v4
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -29,31 +26,38 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Signing Keystore
+        run: |
+          mkdir -p app/signing
+          echo "${{ secrets.KEY_STORE_FILE }}" | base64 --decode > app/signing/release.keystore
+          chmod 600 app/signing/release.keystore
+
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Build Signed APK
         run: ./gradlew assembleRelease
         env:
+          KEY_STORE_FILE: app/signing/release.keystore
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Verify APK Signature
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -f "$APK_PATH" ]; then
+            echo "Verifying: $APK_PATH"
+            apksigner verify "$APK_PATH" && echo "✅ APK is signed"
+          else
+            echo "❌ No APK found!"
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
-          draft: false
-          prerelease: false
-          # Make sure the tag already exists
-          tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload APK artifact (Backup)
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          retention-days: 30

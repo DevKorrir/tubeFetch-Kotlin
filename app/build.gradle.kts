@@ -21,12 +21,15 @@ android {
     if (keysProperties.exists()) {
         keysProperties.inputStream().use { keys.load(it) }
     }
-//    if (keysProperties.exists()) {
-//        keys.load(keysProperties.inputStream())
-//        keys.forEach { key, value ->
-//            project.extra[key.toString()] = value
-//        }
-//    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("KEY_STORE_FILE") ?: "debug.keystore")
+            storePassword = System.getenv("KEY_STORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
 
     defaultConfig {
         applicationId = "dev.korryr.tubefetch"
@@ -39,8 +42,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // BuildConfig fields
-//        buildConfigField("String", "YOUTUBE_API_KEY", "\"${properties["YOUTUBE_API_KEY"]}\"")
-//        buildConfigField("String", "YOUTUBE_BASE_URL", "\"${properties["YOUTUBE_BASE_URL"]}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${keys.getProperty("YOUTUBE_API_KEY", "")}\"")
         buildConfigField("String", "YOUTUBE_BASE_URL", "\"${keys.getProperty("YOUTUBE_BASE_URL", "")}\"")
         buildConfigField("String", "YOUTUBE_HOST", "\"${keys["YOUTUBE_HOST"]}\"")
@@ -49,11 +50,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
