@@ -26,11 +26,11 @@ jobs:
 
       - name: Setup Signing Keystore
         run: |
-          mkdir -p signing
-          echo "${{ secrets.KEY_STORE_FILE }}" | base64 --decode > signing/release.keystore
+          mkdir -p app/signing
+          echo "${{ secrets.KEY_STORE_FILE }}" | base64 --decode > app/signing/release.keystore
           echo "✅ Keystore created"
-          echo "Path: $(pwd)/signing/release.keystore"
-          echo "Size: $(wc -c < signing/release.keystore) bytes"
+          echo "Path: $(pwd)/app/signing/release.keystore"
+          echo "Size: $(wc -c < app/signing/release.keystore) bytes"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -46,8 +46,8 @@ jobs:
       - name: Debug - List files
         run: |
           echo "Current directory: $(pwd)"
-          echo "Signing directory contents:"
-          ls -la signing/ || echo "No signing directory"
+          echo "Signing directory contents (app/signing):"
+          ls -la app/signing/ || echo "No app/signing directory"
           echo "Root directory:"
           ls -la
 
