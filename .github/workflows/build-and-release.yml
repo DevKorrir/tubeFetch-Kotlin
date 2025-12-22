@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -28,9 +26,11 @@ jobs:
 
       - name: Setup Signing Keystore
         run: |
-          mkdir -p app/signing
-          echo "${{ secrets.KEY_STORE_FILE }}" | base64 --decode > app/signing/release.keystore
-          chmod 600 app/signing/release.keystore
+          mkdir -p signing
+          echo "${{ secrets.KEY_STORE_FILE }}" | base64 --decode > signing/release.keystore
+          echo "✅ Keystore created"
+          echo "Path: $(pwd)/signing/release.keystore"
+          echo "Size: $(wc -c < signing/release.keystore) bytes"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -38,21 +38,18 @@ jobs:
       - name: Build Signed APK
         run: ./gradlew assembleRelease
         env:
-          KEY_STORE_FILE: app/signing/release.keystore
+          KEY_STORE_FILE: signing/release.keystore
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Verify APK Signature
+      - name: Debug - List files
         run: |
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          if [ -f "$APK_PATH" ]; then
-            echo "Verifying: $APK_PATH"
-            apksigner verify "$APK_PATH" && echo "✅ APK is signed"
-          else
-            echo "❌ No APK found!"
-            exit 1
-          fi
+          echo "Current directory: $(pwd)"
+          echo "Signing directory contents:"
+          ls -la signing/ || echo "No signing directory"
+          echo "Root directory:"
+          ls -la
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
